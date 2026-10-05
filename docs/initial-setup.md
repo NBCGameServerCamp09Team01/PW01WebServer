@@ -1,6 +1,6 @@
 # 웹서버 초기 세팅 명세
 
-> 기준: 2026-10-06, 첫 PR(`feat/init-webserver` → `dev`)의 커밋 8개 · 읽는 사람: 팀원 전원(b·c·d)과 AI 에이전트
+> 기준: 2026-10-06, 첫 PR(`feat/init-webserver` → `dev`)의 커밋 10개 · 읽는 사람: 팀원 전원(b·c·d)과 AI 에이전트
 >
 > 이 문서는 **무엇이 왜 이렇게 세팅되어 있는가**를 적습니다. 설치 순서만 필요하면 [README](../README.md) "처음 받기"를 보세요.
 > API 규칙은 루트 `docs/contracts/`, 결정 근거는 [ADR 0001](decisions/0001-초기-설정.md), 새 API 만드는 법은 [예시 API 따라 하기](guides/example-api.md)에 있습니다.
@@ -22,7 +22,7 @@
 13. [CI: GitHub Actions](#13-ci-github-actions)
 14. [편집기·Git 설정 파일](#14-편집기git-설정-파일)
 15. [문서와 규칙](#15-문서와-규칙)
-16. [커밋 8개 상세](#16-커밋-8개-상세)
+16. [커밋 상세](#16-커밋-상세)
 17. [팀원이 쓰는 법](#17-팀원이-쓰는-법)
 18. [바꿀 때 지킬 것](#18-바꿀-때-지킬-것)
 
@@ -102,7 +102,7 @@ flowchart LR
 4. **골격 생성**: IntelliJ의 New Project → Spring Boot(Spring Initializr)로 저장소 밖 임시 폴더에 프로젝트를 만들고, 필요한 파일만 옮겼습니다.
    - 옮기지 않은 것: `HELP.md`(생성기 안내문), `.gitignore`(기존 것이 더 넓고 `.env` 규칙이 있음), `.idea/`·`*.iml`(개인 IDE 설정), `TestPw01WebserverApplication.java`(로컬 실행은 compose로 통일)
    - 바꾼 것: Gradle 래퍼 9.7.1 → 9.5.1(두 과제에서 검증된 버전), springdoc 추가
-5. **커밋 8개로 쌓기**: 골격 → 설정 → compose → 테스트 → CI → 공통 오류 틀 → 예시 API → 문서. 커밋끼리 파일이 겹치지 않게 나눠, 커밋 하나만 봐도 무엇이 들어왔는지 알 수 있습니다([16장](#16-커밋-8개-상세)).
+5. **커밋으로 쌓기**: 골격 → 설정 → compose → 테스트 → CI → 공통 오류 틀 → 예시 API → 문서(C1~C8). 커밋할 때 빠진 파일 3개(래퍼 jar·properties, 테스트 프로필)를 C9로, CI에서 드러난 `gradlew` 실행 권한을 C10으로 더했습니다. `V1__example.sql`은 C2에 들어갔습니다([16장](#16-커밋-상세)).
 6. **검증(10/6)**:
    - `.\gradlew build`: 테스트 17개 통과, 실패 0
    - `docker compose up -d`: MySQL·Redis 모두 healthy
@@ -114,7 +114,7 @@ flowchart LR
 
 ## 3. 파일 지도
 
-"커밋"은 이 파일을 처음 넣은 커밋입니다([16장](#16-커밋-8개-상세)). "처음부터"는 첫 PR 전부터 있던 파일입니다.
+"커밋"은 이 파일을 처음 넣은 커밋입니다([16장](#16-커밋-상세)). "처음부터"는 첫 PR 전부터 있던 파일입니다.
 
 ### 3-1. 저장소 맨 위
 
@@ -122,9 +122,9 @@ flowchart LR
 |---|---|---|---|
 | `build.gradle` | 빌드 정의: 플러그인, Java 버전, 의존성, 테스트 설정 | 의존성을 더하거나 빌드 동작을 바꿀 때 | C1 |
 | `settings.gradle` | Gradle 프로젝트 이름(`pw01-webserver`). jar 파일 이름에 쓰인다 | 거의 안 고침 | C1 |
-| `gradlew`, `gradlew.bat` | Gradle 래퍼 실행 스크립트(리눅스·맥용 / 윈도우용). Gradle을 따로 설치하지 않아도 된다 | 안 고침 | C1 |
-| `gradle/wrapper/gradle-wrapper.properties` | 래퍼가 받을 Gradle 배포판 주소(9.5.1) | Gradle 버전을 바꿀 때 | C1 |
-| `gradle/wrapper/gradle-wrapper.jar` | 래퍼 본체. 배포판을 받아 실행하는 작은 프로그램 | 안 고침 | C1 |
+| `gradlew`, `gradlew.bat` | Gradle 래퍼 실행 스크립트(리눅스·맥용 / 윈도우용). Gradle을 따로 설치하지 않아도 된다 | 안 고침 | C1(실행 권한 C10) |
+| `gradle/wrapper/gradle-wrapper.properties` | 래퍼가 받을 Gradle 배포판 주소(9.5.1) | Gradle 버전을 바꿀 때 | C9 |
+| `gradle/wrapper/gradle-wrapper.jar` | 래퍼 본체. 배포판을 받아 실행하는 작은 프로그램 | 안 고침 | C9 |
 | `.gitattributes` | 줄바꿈·바이너리 저장 규칙 | 거의 안 고침 | C1 |
 | `.editorconfig` | 편집기 공통 설정(모든 파일 UTF-8) | 거의 안 고침 | C2 |
 | `.gitignore` | git이 무시할 파일(`.env`, `build/`, `.idea/` …) | 무시할 것이 생길 때 | 처음부터 |
@@ -167,7 +167,7 @@ flowchart LR
 | `application.properties` | 모든 환경 공통 설정 | 공통 설정을 바꿀 때 | C2 |
 | `application-local.properties` | 각자 PC(compose) 접속 설정 | 로컬 접속 방식이 바뀔 때 | C2 |
 | `application-prod.properties` | 배포 서버 접속 설정(전부 환경 변수) | 배포 계획(D-4) 때 | C2 |
-| `db/migration/V1__example.sql` | 예시 테이블을 만드는 Flyway 마이그레이션 | **고치지 않음**. 바꿀 것은 새 파일(V2…)로 | C7 |
+| `db/migration/V1__example.sql` | 예시 테이블을 만드는 Flyway 마이그레이션 | **고치지 않음**. 바꿀 것은 새 파일(V2…)로 | C2 |
 
 ### 3-4. 테스트 `src/test/`
 
@@ -180,7 +180,7 @@ flowchart LR
 | `java/.../InfraConnectionTest.java` | MySQL `SELECT 1`, Redis `PING` | C4 |
 | `java/.../common/error/GlobalExceptionHandlerTest.java` | 공통 오류 틀 7가지 경우(예시 API를 지워도 남음) | C6 |
 | `java/.../example/ExampleApiTest.java` | 예시 API 6가지 경우(예시와 함께 삭제) | C7 |
-| `resources/application-test.properties` | test 프로필 설정 | C2 |
+| `resources/application-test.properties` | test 프로필 설정 | C9 |
 
 ### 3-5. 문서 `docs/`
 
@@ -219,7 +219,7 @@ flowchart LR
 | `retries`, `retryBackOffMs` | 내려받기 재시도 횟수와 간격 |
 
 - Windows의 cmd와 PowerShell(IntelliJ 터미널 기본)에서는 `.\gradlew`로 실행합니다. Git Bash·리눅스·맥은 `./gradlew`입니다.
-- `gradlew`는 실행 권한이 있어야 CI(리눅스)에서 돕니다. 커밋할 때 `git add --chmod=+x gradlew`로 권한을 기록했습니다.
+- `gradlew`는 실행 권한이 있어야 CI(리눅스)에서 돕니다. Windows의 git은 파일 권한을 기록하지 않아(`core.fileMode=false`) 처음 커밋에서 빠졌고, CI가 `./gradlew: Permission denied`(exit 126)로 실패했습니다. `git update-index --chmod=+x gradlew`로 권한을 기록해 고쳤습니다(C10). `git ls-files -s gradlew`가 `100755`로 시작하면 정상입니다.
 
 ### 4-2. Java 툴체인
 
@@ -727,7 +727,7 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
 
 ---
 
-## 16. 커밋 8개 상세
+## 16. 커밋 상세
 
 ### C1 `chore: Spring Boot 프로젝트 골격 추가`
 
@@ -735,7 +735,7 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
 - **파일과 역할**
   - `build.gradle`: 플러그인(Boot 4.1.1, 의존성 관리), Java 21 툴체인, 의존성 전체(5장), 테스트 JVM 시간대 UTC
   - `settings.gradle`: 프로젝트 이름 `pw01-webserver`
-  - `gradlew`, `gradlew.bat`, `gradle/wrapper/`: Gradle 9.5.1 래퍼(4-1)
+  - `gradlew`, `gradlew.bat`: Gradle 래퍼 스크립트(4-1). 래퍼 jar·properties는 C9
   - `.gitattributes`: 줄바꿈·바이너리 규칙(14장)
   - `Pw01WebserverApplication.java`: 앱 시작점, JVM 시간대 UTC
 - **이 커밋 뒤**: 앱이 컴파일된다. 아직 설정이 없어 DB에 붙지 못한다. 테스트 소스가 없어 테스트 단계는 건너뛴다.
@@ -748,10 +748,10 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
   - `application.properties`: 공통 설정(6-2). 기본 프로필 local, `validate`, UTC, 모르는 필드 400, health만 노출, Redis 저장소 스캔 끔
   - `application-local.properties`: compose 접속(6-3)
   - `application-prod.properties`: 배포 접속(6-4)
-  - `application-test.properties`: 테스트 프로필(6-5)
   - `BaseEntity.java`: 생성·수정 시각(11-4)
   - `JpaAuditingConfig.java`: Auditing 켜기, 밀리초 시각 공급자(11-4)
   - `.editorconfig`: UTF-8(14장)
+  - `db/migration/V1__example.sql`: 예시 테이블(원래 C7 몫이었으나 이 커밋에 들어감. 내용·빌드 영향 없음)
 - **이 커밋 뒤**: local 프로필로 실행하면 compose의 DB·Redis에 붙을 준비가 된다(compose는 C3에서 보강).
 - **결정**: W11~W17, W30
 
@@ -796,7 +796,6 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
 - **목적**: 요청이 Controller → Service → Repository → DB를 지나는 견본 하나를 둔다.
 - **파일과 역할**
   - `example/` 6개: controller, dto 2개, entity, repository, service
-  - `V1__example.sql`: `example` 테이블과 유일 제약
   - `ExampleApiTest.java`: 6가지 경우(실제 MySQL)
   - `docs/guides/example-api.md`: 파트별 따라 하기, 지우는 법
 - **이 커밋 뒤**: Swagger에서 예시 API를 호출해 볼 수 있다. 첫 실제 API(S1)가 병합되면 지운다.
@@ -814,6 +813,18 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
   - `docs/decisions/0001-초기-설정.md`: 결정 기록
   - `docs/troubleshooting/README.md`: 문제 해결 기록 3건
 - **결정**: W25~W27, W33
+
+### C9 `chore: Gradle 래퍼 파일·테스트 프로필 설정 추가, gradlew 실행 권한`
+
+- **목적**: C1·C2에서 `git add`가 빠진 파일을 더한다. 이 커밋이 있어야 저장소만 받아도 빌드가 된다.
+- **파일과 역할**: `gradle/wrapper/gradle-wrapper.jar`·`gradle-wrapper.properties`(래퍼 본체와 Gradle 버전), `src/test/resources/application-test.properties`(test 프로필)
+- 제목에 실행 권한이 있지만 실제로는 들어가지 않아 C10에서 고쳤다.
+
+### C10 `fix: gradlew 실행 권한 추가`
+
+- **목적**: CI(리눅스)에서 `./gradlew: Permission denied`로 빌드가 시작조차 되지 않던 문제를 고친다.
+- **파일과 역할**: `gradlew` 파일 모드 `100644` → `100755`(내용 변경 없음)
+- **배운 것**: Windows에서 만든 실행 스크립트는 `git update-index --chmod=+x`로 권한을 직접 기록해야 한다([트러블슈팅](troubleshooting/README.md)).
 
 ---
 

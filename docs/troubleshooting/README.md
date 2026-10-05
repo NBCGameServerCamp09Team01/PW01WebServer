@@ -22,6 +22,7 @@
 | 2026-10-06 | [3306을 Windows의 MySQL 서비스가 쓰고 있어 compose MySQL과 부딪힘](#3306을-windows의-mysql-서비스가-쓰고-있어-compose-mysql과-부딪힘-2026-10-06-sang-hyun-kim) |
 | 2026-10-06 | [프로필 없이 실행해 DataSource url을 찾지 못함](#프로필-없이-실행해-datasource-url을-찾지-못함-2026-10-06-sang-hyun-kim) |
 | 2026-10-06 | [앱이 compose MySQL이 아니라 PC의 MySQL에 붙어 Access denied](#앱이-compose-mysql이-아니라-pc의-mysql에-붙어-access-denied-2026-10-06-sang-hyun-kim) |
+| 2026-10-06 | [CI에서 ./gradlew Permission denied](#ci에서-gradlew-permission-denied-2026-10-06-sang-hyun-kim) |
 
 ### 3306을 Windows의 MySQL 서비스가 쓰고 있어 compose MySQL과 부딪힘 (2026-10-06, Sang-Hyun-Kim)
 
@@ -52,3 +53,12 @@
 - 원인: 실행 구성에 `MYSQL_PORT=3307`이 빠져 local 프로필의 기본값 3306으로 접속했고, PC의 MySQL80 서비스에 붙었다.
 - 조치: 실행 구성의 환경 변수에 `MYSQL_PORT=3307`을 넣었다. health UP, 예시 API 201을 확인했다.
 - 배운 것: `Access denied for user '사용자'@'호스트'`의 호스트를 보면 어느 서버에 붙었는지 알 수 있다. compose와 앱은 같은 포트 값을 써야 한다(`.env`와 실행 구성).
+
+### CI에서 ./gradlew Permission denied (2026-10-06, Sang-Hyun-Kim)
+
+- 증상: PR의 CI에서 체크아웃·JDK 설치·Gradle 설정은 통과했는데 `Run ./gradlew build`가 `./gradlew: Permission denied`(exit code 126)로 바로 실패했다. 로컬 Windows 빌드는 통과했다.
+- 가설: 저장소에 기록된 `gradlew`에 실행 권한이 없다.
+- 반증·확인: `git ls-files -s gradlew`가 `100644`였다(실행 가능 파일이면 `100755`). `git config core.fileMode`는 `false`였다.
+- 원인: Windows의 git은 파일 실행 권한을 보지 않으므로(`core.fileMode=false`) 새 파일을 `100644`로 기록한다. 리눅스 러너는 그대로 받아 실행하지 못한다. 권한을 스테이징해 두었지만 커밋 전에 인덱스가 다시 쓰이면서 풀린 일도 있었다.
+- 조치: `git update-index --chmod=+x gradlew` 직후 바로 커밋했다(C10). 이제 `100755`.
+- 배운 것: 셸 스크립트를 Windows에서 처음 커밋할 때는 권한을 직접 기록하고, 커밋 뒤 `git ls-files -s`로 확인한다. 한 번 `100755`로 기록되면 이후 수정에서는 유지된다.
