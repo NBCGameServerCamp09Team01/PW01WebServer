@@ -32,6 +32,10 @@ jobs:
       # Gradle 캐시
       - uses: gradle/actions/setup-gradle@v6
 
+      # Windows에서 커밋하면 gradlew 실행 권한이 빠질 수 있어(core.fileMode=false) 러너에서 직접 준다
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
       - name: Build and test
         run: ./gradlew build
 
