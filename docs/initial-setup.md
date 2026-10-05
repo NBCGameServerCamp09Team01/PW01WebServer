@@ -1,6 +1,6 @@
 # 웹서버 초기 세팅 명세
 
-> 기준: 2026-10-06, 첫 PR(`feat/init-webserver` → `dev`)의 커밋 10개 · 읽는 사람: 팀원 전원(b·c·d)과 AI 에이전트
+> 기준: 2026-10-06, 첫 PR(`feat/init-webserver` → `dev`)의 커밋 11개 · 읽는 사람: 팀원 전원(b·c·d)과 AI 에이전트
 >
 > 이 문서는 **무엇이 왜 이렇게 세팅되어 있는가**를 적습니다. 설치 순서만 필요하면 [README](../README.md) "처음 받기"를 보세요.
 > API 규칙은 루트 `docs/contracts/`, 결정 근거는 [ADR 0001](decisions/0001-초기-설정.md), 새 API 만드는 법은 [예시 API 따라 하기](guides/example-api.md)에 있습니다.
@@ -102,7 +102,7 @@ flowchart LR
 4. **골격 생성**: IntelliJ의 New Project → Spring Boot(Spring Initializr)로 저장소 밖 임시 폴더에 프로젝트를 만들고, 필요한 파일만 옮겼습니다.
    - 옮기지 않은 것: `HELP.md`(생성기 안내문), `.gitignore`(기존 것이 더 넓고 `.env` 규칙이 있음), `.idea/`·`*.iml`(개인 IDE 설정), `TestPw01WebserverApplication.java`(로컬 실행은 compose로 통일)
    - 바꾼 것: Gradle 래퍼 9.7.1 → 9.5.1(두 과제에서 검증된 버전), springdoc 추가
-5. **커밋으로 쌓기**: 골격 → 설정 → compose → 테스트 → CI → 공통 오류 틀 → 예시 API → 문서(C1~C8). 커밋할 때 빠진 파일 3개(래퍼 jar·properties, 테스트 프로필)를 C9로, CI에서 드러난 `gradlew` 실행 권한을 C10으로 더했습니다. `V1__example.sql`은 C2에 들어갔습니다([16장](#16-커밋-상세)).
+5. **커밋으로 쌓기**: 골격 → 설정 → compose → 테스트 → CI → 공통 오류 틀 → 예시 API → 문서(C1~C8). 커밋할 때 빠진 파일 3개(래퍼 jar·properties, 테스트 프로필)를 C9로, 문서 보정을 C10으로, CI에서 드러난 `gradlew` 실행 권한 문제를 C11(CI에서 `chmod`)로 고쳤습니다. `V1__example.sql`은 C2에 들어갔습니다([16장](#16-커밋-상세)).
 6. **검증(10/6)**:
    - `.\gradlew build`: 테스트 17개 통과, 실패 0
    - `docker compose up -d`: MySQL·Redis 모두 healthy
@@ -122,7 +122,7 @@ flowchart LR
 |---|---|---|---|
 | `build.gradle` | 빌드 정의: 플러그인, Java 버전, 의존성, 테스트 설정 | 의존성을 더하거나 빌드 동작을 바꿀 때 | C1 |
 | `settings.gradle` | Gradle 프로젝트 이름(`pw01-webserver`). jar 파일 이름에 쓰인다 | 거의 안 고침 | C1 |
-| `gradlew`, `gradlew.bat` | Gradle 래퍼 실행 스크립트(리눅스·맥용 / 윈도우용). Gradle을 따로 설치하지 않아도 된다 | 안 고침 | C1(실행 권한 C10) |
+| `gradlew`, `gradlew.bat` | Gradle 래퍼 실행 스크립트(리눅스·맥용 / 윈도우용). Gradle을 따로 설치하지 않아도 된다 | 안 고침 | C1 |
 | `gradle/wrapper/gradle-wrapper.properties` | 래퍼가 받을 Gradle 배포판 주소(9.5.1) | Gradle 버전을 바꿀 때 | C9 |
 | `gradle/wrapper/gradle-wrapper.jar` | 래퍼 본체. 배포판을 받아 실행하는 작은 프로그램 | 안 고침 | C9 |
 | `.gitattributes` | 줄바꿈·바이너리 저장 규칙 | 거의 안 고침 | C1 |
@@ -219,7 +219,7 @@ flowchart LR
 | `retries`, `retryBackOffMs` | 내려받기 재시도 횟수와 간격 |
 
 - Windows의 cmd와 PowerShell(IntelliJ 터미널 기본)에서는 `.\gradlew`로 실행합니다. Git Bash·리눅스·맥은 `./gradlew`입니다.
-- `gradlew`는 실행 권한이 있어야 CI(리눅스)에서 돕니다. Windows의 git은 파일 권한을 기록하지 않아(`core.fileMode=false`) 처음 커밋에서 빠졌고, CI가 `./gradlew: Permission denied`(exit 126)로 실패했습니다. `git update-index --chmod=+x gradlew`로 권한을 기록해 고쳤습니다(C10). `git ls-files -s gradlew`가 `100755`로 시작하면 정상입니다.
+- `gradlew`는 실행 권한이 있어야 CI(리눅스)에서 돕니다. Windows의 git은 파일 권한을 기록하지 않아(`core.fileMode=false`) 처음 커밋에서 빠졌고, CI가 `./gradlew: Permission denied`(exit 126)로 실패했습니다. 권한 기록(`git update-index --chmod=+x gradlew`)은 커밋 전에 풀리는 일이 반복돼, CI가 빌드 전에 `chmod +x gradlew`를 직접 실행하도록 고쳤습니다(C11). 그래서 저장소의 파일 모드와 상관없이 CI가 돕니다.
 
 ### 4-2. Java 툴체인
 
@@ -688,6 +688,7 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
 | `actions/checkout@v7` | | 코드를 받는다 |
 | `actions/setup-java@v6` | `microsoft`, `21` | JDK 21을 설치한다 |
 | `gradle/actions/setup-gradle@v6` | | Gradle 캐시(다음 실행이 빨라진다) |
+| `chmod +x gradlew` | | `gradlew`에 실행 권한을 준다. Windows에서 커밋하면 권한이 빠질 수 있어 넣었다(C11) |
 | `./gradlew build` | | 로컬과 같은 빌드·테스트 |
 | `actions/upload-artifact@v7` | 실패할 때만 | `build/reports/tests/`를 내려받을 수 있게 올린다 |
 
@@ -818,13 +819,17 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
 
 - **목적**: C1·C2에서 `git add`가 빠진 파일을 더한다. 이 커밋이 있어야 저장소만 받아도 빌드가 된다.
 - **파일과 역할**: `gradle/wrapper/gradle-wrapper.jar`·`gradle-wrapper.properties`(래퍼 본체와 Gradle 버전), `src/test/resources/application-test.properties`(test 프로필)
-- 제목에 실행 권한이 있지만 실제로는 들어가지 않아 C10에서 고쳤다.
+- 제목에 실행 권한이 있지만 실제로는 들어가지 않아 C11에서 CI 쪽으로 고쳤다.
 
-### C10 `fix: gradlew 실행 권한 추가`
+### C10 `docs: 세팅 명세를 실제 커밋 이력에 맞춤`
 
-- **목적**: CI(리눅스)에서 `./gradlew: Permission denied`로 빌드가 시작조차 되지 않던 문제를 고친다.
-- **파일과 역할**: `gradlew` 파일 모드 `100644` → `100755`(내용 변경 없음)
-- **배운 것**: Windows에서 만든 실행 스크립트는 `git update-index --chmod=+x`로 권한을 직접 기록해야 한다([트러블슈팅](troubleshooting/README.md)).
+- **목적**: C9와 실행 권한 문제, `V1__example.sql`이 C2에 들어간 것을 문서에 반영한다(이 문서, 트러블슈팅, ADR, 문서 지도).
+
+### C11 `fix: CI에서 gradlew 실행 권한 보장`
+
+- **목적**: CI(리눅스)에서 `./gradlew: Permission denied`(exit 126)로 빌드가 시작조차 되지 않던 문제를 고친다.
+- **파일과 역할**: `.github/workflows/ci.yml`에 빌드 전 `chmod +x gradlew` 단계 추가
+- **배운 것**: Windows의 git은 실행 권한을 기록하지 않는다(`core.fileMode=false`). 권한을 스테이징해도 커밋 전에 풀리는 일이 반복돼, 저장소 상태에 기대지 않고 CI에서 직접 권한을 준다([트러블슈팅](troubleshooting/README.md)).
 
 ---
 
