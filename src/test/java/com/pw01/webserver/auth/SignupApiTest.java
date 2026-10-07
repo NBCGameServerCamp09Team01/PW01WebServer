@@ -44,10 +44,10 @@ class SignupApiTest {
                 """)
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/accounts/me"))
-                .andExpect(jsonPath("$.accountId").isString())
-                .andExpect(jsonPath("$.loginId").value("Signup01"))
-                .andExpect(jsonPath("$.nickname").value("가입01"))
-                .andExpect(jsonPath("$.createdAt").value(matchesPattern(UTC_MILLIS)));
+                .andExpect(jsonPath("$.data.accountId").isString())
+                .andExpect(jsonPath("$.data.loginId").value("Signup01"))
+                .andExpect(jsonPath("$.data.nickname").value("가입01"))
+                .andExpect(jsonPath("$.data.createdAt").value(matchesPattern(UTC_MILLIS)));
 
         Map<String, Object> account = jdbc.queryForMap(
                 "SELECT account_id, password_hash, email, status FROM account WHERE login_id = 'Signup01'");

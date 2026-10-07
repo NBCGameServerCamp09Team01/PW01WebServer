@@ -59,13 +59,13 @@ class AccountControllerTest {
 
         mockMvc.perform(get("/accounts/me").header(HttpHeaders.AUTHORIZATION, HEADER))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accountId").value("7"))
-                .andExpect(jsonPath("$.version").value(3))
-                .andExpect(jsonPath("$.accountLevel").value(3))
-                .andExpect(jsonPath("$.experience").value(40))
-                .andExpect(jsonPath("$.statPoints").value(2))
-                .andExpect(jsonPath("$.investedStats").isMap())
-                .andExpect(jsonPath("$.unlockedSkills").isArray());
+                .andExpect(jsonPath("$.data.accountId").value("7"))
+                .andExpect(jsonPath("$.data.version").value(3))
+                .andExpect(jsonPath("$.data.accountLevel").value(3))
+                .andExpect(jsonPath("$.data.experience").value(40))
+                .andExpect(jsonPath("$.data.statPoints").value(2))
+                .andExpect(jsonPath("$.data.investedStats").isMap())
+                .andExpect(jsonPath("$.data.unlockedSkills").isArray());
     }
 
     // 확인: 토큰이 없으면 401 AUTH_TOKEN_MISSING이고 DB 조회를 하지 않는다

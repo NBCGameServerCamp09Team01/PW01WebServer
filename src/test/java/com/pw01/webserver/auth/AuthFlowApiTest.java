@@ -47,27 +47,27 @@ class AuthFlowApiTest {
 
         String body = login("Flow01", PASSWORD)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.tokenType").value("Bearer"))
-                .andExpect(jsonPath("$.account.accountLevel").value(1))
-                .andExpect(jsonPath("$.account.experience").value(0))
-                .andExpect(jsonPath("$.account.statPoints").value(0))
-                .andExpect(jsonPath("$.account.version").value(0))
-                .andExpect(jsonPath("$.account.investedStats").isMap())
-                .andExpect(jsonPath("$.account.unlockedSkills").isArray())
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.account.accountLevel").value(1))
+                .andExpect(jsonPath("$.data.account.experience").value(0))
+                .andExpect(jsonPath("$.data.account.statPoints").value(0))
+                .andExpect(jsonPath("$.data.account.version").value(0))
+                .andExpect(jsonPath("$.data.account.investedStats").isMap())
+                .andExpect(jsonPath("$.data.account.unlockedSkills").isArray())
                 .andReturn().getResponse().getContentAsString();
-        String token = JsonPath.read(body, "$.accessToken");
-        String loginExpiresAt = JsonPath.read(body, "$.sessionExpiresAt");
+        String token = JsonPath.read(body, "$.data.accessToken");
+        String loginExpiresAt = JsonPath.read(body, "$.data.sessionExpiresAt");
         assertThat(token).matches("[A-Za-z0-9_-]{43}");
         assertThat(redis.keys("pw01:*" + token + "*")).isEmpty();
 
         mockMvc.perform(get("/accounts/me").header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accountLevel").value(1));
+                .andExpect(jsonPath("$.data.accountLevel").value(1));
 
         String heartbeat = mockMvc.perform(post("/auth/heartbeat").header(HttpHeaders.AUTHORIZATION, bearer(token)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        Instant extended = Instant.parse(JsonPath.read(heartbeat, "$.sessionExpiresAt"));
+        Instant extended = Instant.parse(JsonPath.read(heartbeat, "$.data.sessionExpiresAt"));
         assertThat(extended).isAfterOrEqualTo(Instant.parse(loginExpiresAt));
 
         mockMvc.perform(post("/auth/logout").header(HttpHeaders.AUTHORIZATION, bearer(token)))
@@ -177,7 +177,7 @@ class AuthFlowApiTest {
     }
 
     private static String token(ResultActions login) throws Exception {
-        return JsonPath.read(login.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$.accessToken");
+        return JsonPath.read(login.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$.data.accessToken");
     }
 
     private static String bearer(String token) {

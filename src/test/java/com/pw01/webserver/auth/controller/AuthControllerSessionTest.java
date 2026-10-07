@@ -54,8 +54,8 @@ class AuthControllerSessionTest {
 
         mockMvc.perform(post("/auth/heartbeat").header(HttpHeaders.AUTHORIZATION, HEADER))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sessionExpiresAt").value("2026-10-07T10:10:00.123Z"))
-                .andExpect(jsonPath("$.sessionExpiresAt").value(matchesPattern(UTC_MILLIS)));
+                .andExpect(jsonPath("$.data.sessionExpiresAt").value("2026-10-07T10:10:00.123Z"))
+                .andExpect(jsonPath("$.data.sessionExpiresAt").value(matchesPattern(UTC_MILLIS)));
     }
 
     // 확인: 로그아웃은 204 본문 없음, 인터셉터가 준 세션 그대로 서비스에 넘긴다
