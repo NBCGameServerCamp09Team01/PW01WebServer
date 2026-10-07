@@ -156,6 +156,20 @@ class AuthServiceLoginTest {
         assertThat(response.account().accountLevel()).isEqualTo(1);
     }
 
+    // 확인: 메인화면 값 읽기가 실패하면(진행 행 없음·DB 장애) 세션을 만들지 않고 실패 기록도 그대로 둔다.
+    // 실패하면 login의 성공 단계 순서(메인화면 값 → 실패 기록 삭제 → 세션)가 바뀌었는지 본다
+    @Test
+    void 메인화면_값_읽기가_실패하면_세션을_만들지_않는다() {
+        when(accountService.findLoginCandidate(LOGIN_ID)).thenReturn(Optional.of(candidate(AccountStatus.ACTIVE)));
+        when(accountService.getSnapshot(ACCOUNT_ID)).thenThrow(new IllegalStateException("account_progress가 없습니다"));
+
+        assertThatThrownBy(() -> authService.login(new LoginRequest(LOGIN_ID, PASSWORD)))
+                .isInstanceOf(IllegalStateException.class);
+
+        verify(sessionStore, never()).create(any());
+        verify(loginFailStore, never()).clear(anyString());
+    }
+
     private LoginCandidate candidate(AccountStatus status) {
         return new LoginCandidate(ACCOUNT_ID, passwordHash, status);
     }

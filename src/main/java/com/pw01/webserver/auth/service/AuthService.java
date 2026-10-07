@@ -75,7 +75,8 @@ public class AuthService {
     /**
      * 판단 순서가 규칙이다: ① 형식 밖 아이디 401 → ② 잠김 429(비밀번호를 보지 않음)
      * → ③④ 계정 없음·비밀번호 틀림은 실패 기록 후 401(5번째는 429) → ⑤ 제재 403(비밀번호가 맞은 뒤에만)
-     * → ⑥ 성공: 실패 기록 삭제, 세션 생성, 메인화면 값
+     * → ⑥ 성공: 메인화면 값 → 실패 기록 삭제 → 세션 생성
+     * 메인화면 값을 세션보다 먼저 읽는다: 읽기가 실패하면(진행 행 없음 500, DB 장애 503) 세션을 만들지 않는다.
      */
     public LoginResponse login(LoginRequest request) {
         String loginId = request.loginId();
@@ -100,9 +101,9 @@ public class AuthService {
             throw new ForbiddenException(ACCOUNT_SUSPENDED, "이용이 제한된 계정입니다.");
         }
 
+        AccountSnapshotResponse snapshot = accountService.getSnapshot(candidate.accountId());
         loginFailStore.clear(loginId);
         IssuedSession session = sessionStore.create(candidate.accountId());
-        AccountSnapshotResponse snapshot = accountService.getSnapshot(candidate.accountId());
         return LoginResponse.of(session, snapshot);
     }
 
