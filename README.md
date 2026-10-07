@@ -103,9 +103,9 @@ src/test/java/com/pw01/webserver/ ← @IntegrationTest(Testcontainers), @WebMvcT
 
 ## API
 
-- 명세 원본은 루트 `docs/contracts/`입니다. 공통 규칙(경로 `/api/v1`, 시각 UTC, 오류 응답 `{code, message, path, errors}`)은 그 폴더의 README.md에 있습니다.
+- 명세 원본은 루트 `docs/contracts/`입니다. 공통 규칙(경로는 기능 이름부터·버전 없음, 시각 UTC, 오류 응답 `{code, message, path, errors}`)은 그 폴더의 README.md에 있습니다.
 - Swagger UI는 실행 중인 서버를 확인하는 보기입니다. 명세와 다르면 명세가 기준입니다.
-- 지금 있는 API는 학습용 예시 `/api/v1/examples`입니다. 따라 하기: [docs/guides/example-api.md](docs/guides/example-api.md)
+- 지금 있는 API는 학습용 예시 `/api/v1/examples`입니다(경로 규칙이 바뀌기 전에 만든 옛 경로, S1 때 지움). 따라 하기: [docs/guides/example-api.md](docs/guides/example-api.md)
 
 ## 제약·인덱스와 이유
 
