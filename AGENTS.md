@@ -49,7 +49,7 @@
 - DTO: 요청·응답 모두 record. 엔티티를 API 밖으로 내보내지 않습니다. 엔티티 → 응답 DTO 변환은 응답 DTO의 정적 메서드 `from(entity)`에 둡니다.
 - 검증: 요청 DTO에 Bean Validation을 붙입니다. 게임 규칙 검증은 Service에서 합니다.
 - 오류: 상태별 예외(`NotFoundException`·`ConflictException`·`ForbiddenException`·`InvalidRequestException`·`ServiceUnavailableException`)에 오류 코드(대문자와 `_`)를 담아 던집니다. 응답 본문 `{code, message, path, errors}`는 `GlobalExceptionHandler`가 만듭니다. 기능별 코드는 명세의 "오류" 표에 먼저 적습니다.
-- 경로는 `/api/v1/…`입니다. 요청에 모르는 JSON 필드가 있으면 400입니다.
+- 경로는 기능 이름부터 씁니다(예: `/auth/login`, `/accounts/me`). `/api`·버전(`/v1`)을 넣지 않습니다(루트 `docs/contracts/README.md`). 요청에 모르는 JSON 필드가 있으면 400입니다.
 - 엔티티는 `BaseEntity`를 상속해 생성·수정 시각을 받습니다. enum은 문자열 칼럼(`@Enumerated(EnumType.STRING)`)으로 저장합니다.
 - 스키마는 Flyway 마이그레이션(`src/main/resources/db/migration/V{번호}__{설명}.sql`)으로만 바꿉니다(`ddl-auto=validate`). `dev`에 병합된 마이그레이션 파일은 고치지 않고 새 파일을 더합니다.
 - 시간: JVM·DB·JDBC 모두 UTC입니다. 엔티티·DTO의 시각은 `Instant`, JSON은 `Z`가 붙은 ISO-8601(밀리초까지)입니다.

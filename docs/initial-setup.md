@@ -856,7 +856,7 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
 
 ### 17-3. 새 API를 만들 때
 
-[예시 API 따라 하기](guides/example-api.md)의 "c — 서버 API" 순서를 따릅니다. 명세 → DTO(record + 검증) → Controller(`/api/v1/…`) → Service(상태별 예외 + 코드) → 테스트(`@IntegrationTest`).
+[예시 API 따라 하기](guides/example-api.md)의 "c — 서버 API" 순서를 따릅니다. 명세 → DTO(record + 검증) → Controller(`/<기능>/…`) → Service(상태별 예외 + 코드) → 테스트(`@IntegrationTest`).
 
 ### 17-4. 새 테이블·칼럼을 만들 때
 

@@ -2,6 +2,7 @@
 
 > **학습용 예시입니다. 실제 기능이 아닙니다.** 첫 실제 API(S1, 로그인)가 병합되면 예시 코드·테이블과 이 문서를 지웁니다(맨 아래 "지우는 법").
 > 명세: 루트 `docs/contracts/example-api.md` · 공통 규칙(경로·시각·오류 응답): 루트 `docs/contracts/README.md`
+> 예시는 경로 규칙이 바뀌기 전(10/7)에 만들어 옛 경로 `/api/v1/examples`를 씁니다. 새 API는 기능 이름부터 씁니다(예: `/auth/login`).
 
 요청 하나가 **Controller → Service → Repository → DB**를 지나 응답이 되기까지를 파일 순서대로 보여 줍니다. 새 API를 만들 때 이 순서를 그대로 따라 하면 됩니다. 코드 주석은 짧게 두고, "왜 이렇게 했나"는 이 문서에 모았습니다.
 
@@ -53,7 +54,7 @@ Content-Type: application/json
 
 1. 루트 `docs/contracts/`에 명세(엔드포인트·요청·응답·오류 코드)를 먼저 쓰고 리뷰를 받습니다.
 2. `<기능>/dto/`에 요청 record + Validation, 응답 record + `from(entity)`를 만듭니다.
-3. `<기능>/controller/`에 `/api/v1/…` 경로와 `@Valid @RequestBody`를 둡니다.
+3. `<기능>/controller/`에 `/<기능>/…` 경로(`/api`·버전 없음)와 `@Valid @RequestBody`를 둡니다.
 4. `<기능>/service/`에 판정과 트랜잭션을 둡니다. 거절은 상태별 예외(`NotFoundException`, `ConflictException`, `ForbiddenException`, `InvalidRequestException`, `ServiceUnavailableException`)에 명세의 오류 코드를 담아 던집니다.
 5. 다른 기능의 데이터가 필요하면 그 기능의 Service를 부릅니다. 다른 기능의 Repository를 직접 부르지 않습니다.
 6. `@IntegrationTest`로 성공과 오류 코드(400·404·409 …)를 확인합니다. 서버 판정·중복 방지·예외는 필수입니다.
