@@ -32,6 +32,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    /** 429: 본문에 남은 시간을 싣고 표준 Retry-After 헤더도 붙인다(ApiException보다 구체적인 타입이라 먼저 고른다) */
+    @ExceptionHandler(TooManyRequestsException.class)
+    ResponseEntity<ErrorResponse> handleTooManyRequests(TooManyRequestsException e, HttpServletRequest request) {
+        return ResponseEntity.status(e.getStatus())
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
+                .body(ErrorResponse.ofRetryAfter(e.getCode(), e.getMessage(), request.getRequestURI(),
+                        e.getRetryAfterSeconds()));
+    }
+
     /** 서버가 의도적으로 거절한 경우(상태별 예외) */
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ErrorResponse> handleApiException(ApiException e, HttpServletRequest request) {

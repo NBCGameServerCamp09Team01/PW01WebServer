@@ -1,5 +1,7 @@
 package com.pw01.webserver.auth.controller;
 
+import com.pw01.webserver.auth.dto.LoginRequest;
+import com.pw01.webserver.auth.dto.LoginResponse;
 import com.pw01.webserver.auth.dto.SignupRequest;
 import com.pw01.webserver.auth.dto.SignupResponse;
 import com.pw01.webserver.auth.service.AuthService;
@@ -23,5 +25,10 @@ public class AuthController {
     public ResponseEntity<SignupResponse> signup(@Valid @RequestBody SignupRequest request){
         SignupResponse created = authService.signup(request);
         return ResponseEntity.created(URI.create("/accounts/me")).body(created);
+    }
+
+    @PostMapping("/login")
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+        return authService.login(request);
     }
 }

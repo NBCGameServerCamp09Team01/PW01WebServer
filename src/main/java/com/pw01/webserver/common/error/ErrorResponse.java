@@ -6,17 +6,23 @@ import java.util.List;
 
 /**
  * 공통 오류 응답 본문. 형식은 루트 docs/contracts/README.md "오류 응답"이 기준이다.
- * errors는 검증 오류(VALIDATION_FAILED)일 때만 나가고, 그 밖에는 본문에서 빠진다.
+ * errors는 검증 오류(VALIDATION_FAILED)일 때만, retryAfterSeconds는 429일 때만 나가고, 그 밖에는 본문에서 빠진다.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record ErrorResponse(String code, String message, String path, List<FieldErrorDetail> errors) {
+public record ErrorResponse(String code, String message, String path, List<FieldErrorDetail> errors,
+                            Long retryAfterSeconds) {
 
     public static ErrorResponse of(String code, String message, String path) {
-        return new ErrorResponse(code, message, path, null);
+        return new ErrorResponse(code, message, path, null, null);
     }
 
     public static ErrorResponse ofValidation(String path, List<FieldErrorDetail> errors) {
-        return new ErrorResponse(CommonErrorCode.VALIDATION_FAILED, "요청 값이 올바르지 않습니다.", path, errors);
+        return new ErrorResponse(CommonErrorCode.VALIDATION_FAILED, "요청 값이 올바르지 않습니다.", path, errors, null);
+    }
+
+    /** 429: 다시 시도할 수 있기까지 남은 시간(초)을 싣는다 */
+    public static ErrorResponse ofRetryAfter(String code, String message, String path, long retryAfterSeconds) {
+        return new ErrorResponse(code, message, path, null, retryAfterSeconds);
     }
 
     /** 필드 하나의 검증 오류 */

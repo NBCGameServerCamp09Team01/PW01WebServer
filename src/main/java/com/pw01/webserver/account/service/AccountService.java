@@ -1,5 +1,7 @@
 package com.pw01.webserver.account.service;
 
+import com.pw01.webserver.account.dto.AccountSnapshotResponse;
+import com.pw01.webserver.account.dto.LoginCandidate;
 import com.pw01.webserver.account.entity.Account;
 import com.pw01.webserver.account.entity.AccountProgress;
 import com.pw01.webserver.account.repository.AccountProgressRepository;
@@ -9,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +45,19 @@ public class AccountService {
         } catch (DataIntegrityViolationException e){ // 2차 방어(동시 가입을 DB가 막은 경우)
             throw toConflict(e);
         }
+    }
+
+    /** 로그인 판단용 값(아이디는 대소문자까지 같은 것만 찾는다). 엔티티 대신 필요한 값만 돌려준다 */
+    public Optional<LoginCandidate> findLoginCandidate(String loginId) {
+        return accountRepository.findByLoginId(loginId)
+                .map(account -> new LoginCandidate(account.getId(), account.getPasswordHash(), account.getStatus()));
+    }
+
+    /** 메인화면 값. 계정은 있는데 진행 행이 없으면 데이터 버그라 500으로 둔다 */
+    public AccountSnapshotResponse getSnapshot(Long accountId) {
+        return accountProgressRepository.findById(accountId)
+                .map(AccountSnapshotResponse::from)
+                .orElseThrow(() -> new IllegalStateException("account_progress가 없습니다. accountId=" + accountId));
     }
 
     private static RuntimeException toConflict(DataIntegrityViolationException e) {
