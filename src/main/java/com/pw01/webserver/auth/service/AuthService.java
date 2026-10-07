@@ -129,6 +129,14 @@ public class AuthService {
         };
     }
 
+    /**
+     * 로그아웃. 인터셉터를 통과한 세션만 온다(다른 곳에서 로그인된 이전 기기는 인터셉터에서 이미 401).
+     * 계정 키는 지금 값이 내 토큰일 때만 지우므로, 그사이 새 기기가 로그인했어도 새 세션은 남는다.
+     */
+    public void logout(AuthenticatedSession session) {
+        sessionStore.delete(session.token(), session.accountId());
+    }
+
     private boolean passwordMatches(String rawPassword, String hash) {
         if (rawPassword.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES) {
             return false;

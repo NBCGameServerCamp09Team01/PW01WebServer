@@ -16,6 +16,7 @@ import java.time.Instant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -83,6 +84,14 @@ class AuthServiceAuthenticateTest {
         assertThat(session.expiresAt()).isEqualTo(expiresAt);
         assertThat(session.token()).isEqualTo(TOKEN);
         assertThat(session.toString()).doesNotContain(TOKEN);
+    }
+
+    // 확인: 로그아웃은 토큰 원문과 계정 ID를 저장소에 넘긴다(비교 후 삭제는 저장소의 session_logout.lua)
+    @Test
+    void 로그아웃은_토큰과_계정을_넘겨_삭제() {
+        authService.logout(new AuthenticatedSession(TOKEN, 7L, Instant.parse("2026-10-07T10:10:00Z")));
+
+        verify(sessionStore).delete(TOKEN, 7L);
     }
 
     private static void assertCode(org.assertj.core.api.ThrowableAssert.ThrowingCallable call, String code) {
