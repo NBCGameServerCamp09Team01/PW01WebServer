@@ -5,6 +5,7 @@ import com.pw01.webserver.account.dto.LoginCandidate;
 import com.pw01.webserver.account.entity.Account;
 import com.pw01.webserver.account.entity.AccountStatus;
 import com.pw01.webserver.account.service.AccountService;
+import com.pw01.webserver.auth.dto.AuthenticatedSession;
 import com.pw01.webserver.auth.dto.LoginRequest;
 import com.pw01.webserver.auth.dto.LoginResponse;
 import com.pw01.webserver.auth.dto.SignupRequest;
@@ -12,6 +13,7 @@ import com.pw01.webserver.auth.dto.SignupResponse;
 import com.pw01.webserver.auth.repository.IssuedSession;
 import com.pw01.webserver.auth.repository.LoginFailResult;
 import com.pw01.webserver.auth.repository.LoginFailStore;
+import com.pw01.webserver.auth.repository.SessionCheck;
 import com.pw01.webserver.auth.repository.SessionStore;
 import com.pw01.webserver.common.error.ForbiddenException;
 import com.pw01.webserver.common.error.TooManyRequestsException;
@@ -33,6 +35,14 @@ public class AuthService {
     static final String INVALID_CREDENTIALS = "AUTH_INVALID_CREDENTIALS";
     static final String LOGIN_LOCKED = "AUTH_LOGIN_LOCKED";
     static final String ACCOUNT_SUSPENDED = "ACCOUNT_SUSPENDED";
+    static final String TOKEN_MISSING = "AUTH_TOKEN_MISSING";
+    static final String TOKEN_INVALID = "AUTH_TOKEN_INVALID";
+    static final String SESSION_NOT_FOUND = "AUTH_SESSION_NOT_FOUND";
+    static final String SESSION_REPLACED = "AUTH_SESSION_REPLACED";
+
+    private static final String BEARER_PREFIX = "Bearer ";
+    /** 32바이트를 URL-safe Base64(패딩 없음)로 쓴 43자. 모양이 틀리면 Redis를 보지 않는다 */
+    private static final Pattern TOKEN_FORMAT = Pattern.compile("^[A-Za-z0-9_-]{43}$");
 
     /** 가입 규칙과 같다. 이 형식이 아니면 DB·Redis를 보지 않고 같은 401(회의 10/7, 회신 1-1의 6) */
     private static final Pattern LOGIN_ID_FORMAT = Pattern.compile("^[A-Za-z0-9]{4,20}$");
@@ -94,6 +104,29 @@ public class AuthService {
         IssuedSession session = sessionStore.create(candidate.accountId());
         AccountSnapshotResponse snapshot = accountService.getSnapshot(candidate.accountId());
         return LoginResponse.of(session, snapshot);
+    }
+
+    /**
+     * 인증이 필요한 요청마다(인터셉터가 부름). 확인 순서가 규칙이다:
+     * ① Authorization 헤더가 "Bearer "로 시작 → ② 토큰 모양 → ③ 세션이 있음 → ④ 지금 세션이 내 토큰. 통과하면 세션이 연장된다.
+     *
+     * @param authorizationHeader Authorization 헤더 값(없으면 null)
+     */
+    public AuthenticatedSession authenticate(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
+            throw new UnauthorizedException(TOKEN_MISSING, "로그인이 필요합니다.");
+        }
+        String token = authorizationHeader.substring(BEARER_PREFIX.length());
+        if (!TOKEN_FORMAT.matcher(token).matches()) {
+            throw new UnauthorizedException(TOKEN_INVALID, "인증 정보가 올바르지 않습니다.");
+        }
+
+        SessionCheck check = sessionStore.touch(token);
+        return switch (check.status()) {
+            case OK -> new AuthenticatedSession(token, check.accountId(), check.expiresAt());
+            case NOT_FOUND -> throw new UnauthorizedException(SESSION_NOT_FOUND, "세션이 끝났습니다. 다시 로그인해 주세요.");
+            case REPLACED -> throw new UnauthorizedException(SESSION_REPLACED, "다른 곳에서 로그인되었습니다.");
+        };
     }
 
     private boolean passwordMatches(String rawPassword, String hash) {

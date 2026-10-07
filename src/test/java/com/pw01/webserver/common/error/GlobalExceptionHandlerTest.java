@@ -1,6 +1,7 @@
 package com.pw01.webserver.common.error;
 
 import com.pw01.webserver.MockMvcUtf8Config;
+import com.pw01.webserver.auth.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,6 +42,10 @@ class GlobalExceptionHandlerTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    /** 웹 계층 테스트에도 WebConfig(인증 인터셉터)가 올라오므로 인터셉터가 쓰는 AuthService를 목으로 채운다. 이 테스트 경로에는 인터셉터가 걸리지 않는다 */
+    @MockitoBean
+    AuthService authService;
 
     @Test
     void validationErrorListsFields() throws Exception {
