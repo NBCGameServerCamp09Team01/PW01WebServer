@@ -65,7 +65,7 @@ class AuthInterceptorTest {
 
         mockMvc.perform(get("/accounts/test-id").header(HttpHeaders.AUTHORIZATION, HEADER))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").value(7));
+                .andExpect(jsonPath("$.data").value(7)); // 성공 본문은 {data, meta}로 감싼다(ApiResponseAdvice)
 
         mockMvc.perform(post("/auth/heartbeat").header(HttpHeaders.AUTHORIZATION, HEADER))
                 .andExpect(status().isOk())
