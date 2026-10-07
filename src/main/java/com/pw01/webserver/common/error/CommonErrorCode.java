@@ -16,6 +16,9 @@ public final class CommonErrorCode {
     /** 500: 서버 내부 오류. 원인은 서버 로그에만 남긴다 */
     public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
 
+    /** 503: MySQL·Redis에 닿지 못함. 잠시 뒤 다시 보내면 될 수 있다 */
+    public static final String SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE";
+
     private CommonErrorCode() {
     }
 
