@@ -1,15 +1,20 @@
 package com.pw01.webserver.common.error;
 
 import com.pw01.webserver.MockMvcUtf8Config;
+import com.pw01.webserver.auth.service.AuthService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,6 +42,10 @@ class GlobalExceptionHandlerTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    /** 웹 계층 테스트에도 WebConfig(인증 인터셉터)가 올라오므로 인터셉터가 쓰는 AuthService를 목으로 채운다. 이 테스트 경로에는 인터셉터가 걸리지 않는다 */
+    @MockitoBean
+    AuthService authService;
 
     @Test
     void validationErrorListsFields() throws Exception {
@@ -110,6 +119,27 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").value(not(containsString("내부 정보"))));
     }
 
+    // 확인: Redis 연결 실패·DB 트랜잭션 시작 실패는 503 SERVICE_UNAVAILABLE. 실패하면 handleUnavailable의 대상 예외를 본다
+    @Test
+    void storageUnreachableIsServiceUnavailable() throws Exception {
+        mockMvc.perform(get("/test/errors/redis-down"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"))
+                .andExpect(jsonPath("$.path").value("/test/errors/redis-down"));
+
+        mockMvc.perform(get("/test/errors/db-down"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
+    }
+
+    // 확인: 연결은 됐는데 제약 위반으로 실패한 것은 503이 아니라 500. 실패하면 503 대상이 너무 넓어졌는지 본다
+    @Test
+    void constraintViolationStaysInternalError() throws Exception {
+        mockMvc.perform(get("/test/errors/constraint"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"));
+    }
+
     /** 테스트 전용 컨트롤러. 오류를 일부러 일으킨다 */
     @RestController
     @RequestMapping("/test/errors")
@@ -139,6 +169,21 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/boom")
         void boom() {
             throw new IllegalStateException("내부 정보가 담긴 메시지");
+        }
+
+        @GetMapping("/redis-down")
+        void redisDown() {
+            throw new RedisConnectionFailureException("테스트: Redis 연결 실패");
+        }
+
+        @GetMapping("/db-down")
+        void dbDown() {
+            throw new CannotCreateTransactionException("테스트: DB 연결 실패");
+        }
+
+        @GetMapping("/constraint")
+        void constraint() {
+            throw new DataIntegrityViolationException("테스트: CHECK 위반");
         }
 
     }
