@@ -8,6 +8,8 @@ PW01WebServer 저장소 안의 문서 목록입니다. 게임과 함께 지키�
 | [initial-setup.md](initial-setup.md) | 초기 세팅 명세: 파일·의존성·설정 키·기동 순서·오류 흐름·테스트·CI의 역할, 세팅을 만든 과정(커밋 이력), 팀원이 쓰는 법 | 2026-10-06 기준 |
 | [decisions/0001-초기-설정.md](decisions/0001-초기-설정.md) | 결정 기록(ADR): 웹서버 초기 설정 W01~W39 | 채택 |
 | [troubleshooting/README.md](troubleshooting/README.md) | 문제 해결 기록(가설 → 반증 → 원인 → 조치 → 배운 것) | 진행형 |
+| [migrations.md](migrations.md) | Flyway 마이그레이션 번호 표와 번호 규칙 | 진행형 |
+| [erd/stage.md](erd/stage.md) | ERD: 스테이지 진행(`account_stage_progress`) | 초안 |
 
 ## 다른 곳에 있는 문서
 
