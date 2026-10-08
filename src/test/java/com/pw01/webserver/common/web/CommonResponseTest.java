@@ -89,18 +89,6 @@ class CommonResponseTest {
         assertThat(response.getContentAsString()).isEmpty();
     }
 
-    /** 학습용 예시 API는 규칙보다 먼저 만들어 감싸지 않는다(S1 병합 때 지움) */
-    @Test
-    void exampleApiIsNotWrapped() throws Exception {
-        mockMvc.perform(post("/api/v1/examples").contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name": "resp-example"}
-                                """))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("resp-example"))
-                .andExpect(jsonPath("$.data").doesNotExist());
-    }
-
     private ResultActions signup(String loginId, String nickname) throws Exception {
         return mockMvc.perform(post("/auth/signup").contentType(MediaType.APPLICATION_JSON)
                 .content("""

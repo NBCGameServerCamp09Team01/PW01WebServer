@@ -3,7 +3,9 @@
 > 기준: 2026-10-06, 첫 PR(`feat/init-webserver` → `dev`)의 커밋 11개 · 읽는 사람: 팀원 전원(b·c·d)과 AI 에이전트
 >
 > 이 문서는 **무엇이 왜 이렇게 세팅되어 있는가**를 적습니다. 설치 순서만 필요하면 [README](../README.md) "처음 받기"를 보세요.
-> API 규칙은 루트 `docs/contracts/`, 결정 근거는 [ADR 0001](decisions/0001-초기-설정.md), 새 API 만드는 법은 [예시 API 따라 하기](guides/example-api.md)에 있습니다.
+> API 규칙은 루트 `docs/contracts/`, 결정 근거는 [ADR 0001](decisions/0001-초기-설정.md)에 있습니다.
+>
+> **2026-10-08 S1 정리(`V3__drop_example.sql`)**: 학습용 예시 API(`example/` 패키지, `ExampleApiTest`, `docs/guides/example-api.md`, `example` 표)를 지웠습니다. 아래의 예시 관련 행·설명은 세팅 당시(10/6)의 기록입니다. 새 API는 S1 인증·계정 코드(`auth/`, `account/`)와 루트 `docs/contracts/auth-api.md`·`account-api.md`를 견본으로 봅니다.
 
 ## 목차
 
@@ -41,7 +43,7 @@
 | 오류 | 모든 오류를 같은 JSON 모양 `{code, message, path, errors}`으로 돌려준다 | `common/error/` |
 | 테스트 | 실제 MySQL·Redis(테스트용 컨테이너)로 통합 테스트를 돌린다 | `src/test/` |
 | CI | PR마다 빌드·테스트를 GitHub에서 자동으로 돌린다 | `.github/workflows/ci.yml` |
-| 견본 | 요청이 DB까지 흐르는 학습용 API 하나(S1 병합 때 삭제) | `example/`, `docs/guides/example-api.md` |
+| 견본 | 요청이 DB까지 흐르는 학습용 API 하나(**10/8 V3로 삭제됨**) | `example/`, `docs/guides/example-api.md` |
 | 규칙·문서 | 사람·AI 작업 규칙, 결정 기록, 문제 해결 기록 | `AGENTS.md`, `docs/` |
 
 ### 1-2. 버전
@@ -189,7 +191,7 @@ flowchart LR
 | `docs/README.md` | 웹서버 문서 지도 | C8 |
 | `docs/overview.md` | 구조·프로필·환경 변수 표(요약) | C8 |
 | `docs/initial-setup.md` | 이 문서(세팅 명세) | C8 |
-| `docs/guides/example-api.md` | 예시 API 따라 하기(b·c·d 파트별). S1 때 삭제 | C7 |
+| `docs/guides/example-api.md` | 예시 API 따라 하기(b·c·d 파트별). **10/8 삭제됨** | C7 |
 | `docs/decisions/0001-초기-설정.md` | 결정 기록(ADR): W01~W39, 근거, 대가, 대안 | C8 |
 | `docs/troubleshooting/README.md` | 문제 해결 기록 | C8 |
 
@@ -528,7 +530,7 @@ HTTP 요청 → Tomcat → DispatcherServlet → Controller(@Valid 검증)
 응답 DTO(record) → Jackson 3 → JSON 응답
 ```
 
-파일 순서대로 따라가는 예시는 [예시 API 따라 하기](guides/example-api.md)에 있습니다.
+파일 순서대로 따라가는 예시는 예시 API 따라 하기(`docs/guides/example-api.md`, 10/8 삭제됨)에 있었습니다. 지금은 `auth/`·`account/` 코드를 따라가 보세요.
 
 ### 10-2. 오류가 응답이 되는 길
 
@@ -720,7 +722,7 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
 | `AGENTS.md` (`CLAUDE.md`가 불러옴) | AI 에이전트(자동으로 읽음), 사람 | 작업 규칙(브랜치·코드·테스트·비밀값) |
 | `docs/initial-setup.md`(이 문서) | 모두 | 세팅이 왜 이런지 알고 싶을 때 |
 | `docs/overview.md` | 모두 | 구조·프로필·환경 변수 요약 |
-| `docs/guides/example-api.md` | b·c·d | 새 API·테이블을 만들기 전에 |
+| `docs/guides/example-api.md`(10/8 삭제됨) → `auth/`·`account/` 코드 | b·c·d | 새 API·테이블을 만들기 전에 |
 | `docs/decisions/0001-초기-설정.md` | 모두 | 결정의 근거와 대가, 고르지 않은 대안 |
 | `docs/troubleshooting/README.md` | 모두 | 문제가 생겼을 때, 해결한 뒤 기록할 때 |
 | 루트 `docs/contracts/` | b·c(특히) | API·오류 형식·Redis 키의 기준 |
@@ -856,7 +858,7 @@ JSON 응답에는 charset이 붙지 않는데, MockMvc는 응답 본문을 기�
 
 ### 17-3. 새 API를 만들 때
 
-[예시 API 따라 하기](guides/example-api.md)의 "c — 서버 API" 순서를 따릅니다. 명세 → DTO(record + 검증) → Controller(`/<기능>/…`) → Service(상태별 예외 + 코드) → 테스트(`@IntegrationTest`).
+예시 API 따라 하기(10/8 삭제됨)의 "c — 서버 API" 순서와 같습니다. 명세 → DTO(record + 검증) → Controller(`/<기능>/…`) → Service(상태별 예외 + 코드) → 테스트(`@IntegrationTest`).
 
 ### 17-4. 새 테이블·칼럼을 만들 때
 

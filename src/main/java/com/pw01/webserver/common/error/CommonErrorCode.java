@@ -3,7 +3,7 @@ package com.pw01.webserver.common.error;
 /**
  * 모든 API에 공통인 오류 코드. 목록은 루트 docs/contracts/README.md "오류 코드"가 기준이다.
  * 404·405처럼 표에 없는 HTTP 오류는 상태 이름(NOT_FOUND, METHOD_NOT_ALLOWED …)을 코드로 쓴다.
- * 기능별 코드(예: EXAMPLE_NOT_FOUND)는 각 기능 쪽에 두고, 그 명세의 "오류" 표에 먼저 적는다.
+ * 기능별 코드(예: ACCOUNT_LOGIN_ID_DUPLICATED)는 각 기능 쪽에 두고, 그 명세의 "오류" 표에 먼저 적는다.
  */
 public final class CommonErrorCode {
 

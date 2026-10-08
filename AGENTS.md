@@ -55,7 +55,6 @@
 - 시간: JVM·DB·JDBC 모두 UTC입니다. 엔티티·DTO의 시각은 `Instant`, JSON은 `Z`가 붙은 ISO-8601(밀리초까지)입니다.
 - 설정: `application.properties`(공통) + 프로필 `local`(각자 PC, compose. 프로필을 정하지 않으면 기본) · `test`(테스트) · `prod`(배포). 테스트 클래스에는 `test` 프로필을 붙입니다.
 - WebSocket은 의존성만 있습니다. 설정·핸들러는 S7 때 만듭니다.
-- 학습용 예시 API(`example` 패키지)는 규칙의 견본일 뿐 실제 기능이 아닙니다. 첫 실제 API(S1)가 병합되면 지웁니다(`docs/guides/example-api.md` "지우는 법").
 
 ## 테스트
 
