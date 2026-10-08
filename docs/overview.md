@@ -29,12 +29,12 @@ com.pw01.webserver
 ├─ common/master   MasterDataLoader(resources/master/*.json을 기동 때 읽음, 틀리면 기동 실패. SF-7)
 ├─ config          JpaAuditingConfig
 ├─ stage/          지역·스테이지 정보(master/stages.json, ST1 GET /stages)와 계정별 클리어 진행(ST2 GET /accounts/me/stages)
-└─ <기능>/          controller · service · repository · entity · dto  (지금은 학습용 example)
+└─ <기능>/          controller · service · repository · entity · dto  (지금은 account·auth)
 ```
 
 ## 요청 흐름
 
-Controller(요청 DTO 검증) → Service(판정·트랜잭션) → Repository → DB 순서로 흐릅니다. 거절은 상태별 예외로 던지고, `GlobalExceptionHandler`가 공통 오류 응답 `{code, message, path, errors}`으로 바꿉니다. 파일 순서대로 따라가는 예시는 [guides/example-api.md](guides/example-api.md)에 있습니다.
+Controller(요청 DTO 검증) → Service(판정·트랜잭션) → Repository → DB 순서로 흐릅니다. 거절은 상태별 예외로 던지고, `GlobalExceptionHandler`가 공통 오류 응답 `{code, message, path, errors}`으로 바꿉니다. 파일 순서대로 따라가려면 `auth/`(가입·로그인)·`account/`(메인화면 값) 패키지를 보세요.
 
 ## 프로필
 
