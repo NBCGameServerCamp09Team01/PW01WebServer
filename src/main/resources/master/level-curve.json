@@ -1,0 +1,8 @@
+{
+  "maxLevel": 99,
+  "clearedExp": 300,
+  "failedExp": 60,
+  "statPointsPerLevel": 2,
+  "expBase": 100,
+  "expStep": 50
+}

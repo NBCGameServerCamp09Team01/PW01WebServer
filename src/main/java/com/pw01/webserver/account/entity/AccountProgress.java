@@ -1,5 +1,6 @@
 package com.pw01.webserver.account.entity;
 
+import com.pw01.webserver.account.service.LevelGain;
 import com.pw01.webserver.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -31,6 +32,17 @@ public class AccountProgress extends BaseEntity{
     @Version
     @Column(nullable = false)
     private Long version;
+
+    /**
+     * 경험치 계산 결과(LevelCurve.gain)를 반영한다. 계산은 LevelCurve가 하고 여기서는 값만 옮긴다.
+     * version은 저장(flush)할 때 JPA가 올린다(@Version, 낙관적 락).
+     */
+    public void apply(LevelGain gain) {
+        this.level = gain.levelAfter();
+        this.experience = gain.experienceAfter();
+        this.totalExperience = gain.totalAfter();
+        this.statPoints += gain.statPointsGained();
+    }
 
     public static AccountProgress initial(Long accountId){
         AccountProgress progress = new AccountProgress();
