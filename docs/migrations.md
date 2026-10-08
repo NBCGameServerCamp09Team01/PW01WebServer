@@ -16,5 +16,6 @@
 |---|---|---|---|---|---|
 | V1 | `V1__example.sql` | 학습용 예시 표 | Sang-Hyun-Kim | #1 | 병합됨 |
 | V2 | `V2__create_account.sql` | S1 계정·계정 진행 | Sang-Hyun-Kim | #4 | 병합됨 |
-| V3 | `V3__drop_example.sql` | S1 정리: 학습용 예시 표 삭제 | Robbie | — | 예약 |
-| V4 | `V4__create_account_stage_progress.sql` | 스테이지 진행(클리어) | Sang-Hyun-Kim | — | 작업 중 |
+| V3 | `V3__drop_example.sql` | S1 정리: 학습용 예시 표 삭제 | Robbie | #8 | 병합됨 |
+| V4 | `V4__create_account_stage_progress.sql` | 스테이지 진행(클리어) | Sang-Hyun-Kim | #9 | 병합됨 |
+| V5 | `V5__create_run_result.sql` | S2 판·결과 요약·변경 내역·누적 통계 | Robbie | — | 작업 중 |
