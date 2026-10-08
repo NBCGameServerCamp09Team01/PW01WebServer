@@ -1,0 +1,13 @@
+{
+  "regions": [
+    {
+      "regionId": "region.01",
+      "name": "지역 1",
+      "order": 1,
+      "stages": [
+        { "stageId": "stage.01.01", "name": "스테이지 1", "order": 1, "requires": null, "waveCount": 5 },
+        { "stageId": "stage.01.02", "name": "스테이지 2", "order": 2, "requires": "stage.01.01", "waveCount": 5 }
+      ]
+    }
+  ]
+}
