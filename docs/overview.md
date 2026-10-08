@@ -26,7 +26,9 @@
 com.pw01.webserver
 ├─ common/entity   BaseEntity(생성·수정 시각, UTC)
 ├─ common/error    ErrorResponse, CommonErrorCode, 상태별 예외, GlobalExceptionHandler
+├─ common/master   MasterDataLoader(resources/master/*.json을 기동 때 읽음, 틀리면 기동 실패. SF-7)
 ├─ config          JpaAuditingConfig
+├─ stage/          지역·스테이지 정보(master/stages.json, ST1 GET /stages)와 계정별 클리어 진행(ST2 GET /accounts/me/stages)
 └─ <기능>/          controller · service · repository · entity · dto  (지금은 학습용 example)
 ```
 

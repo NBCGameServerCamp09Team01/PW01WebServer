@@ -9,6 +9,8 @@ PW01WebServer 저장소 안의 문서 목록입니다. 게임과 함께 지키�
 | [guides/example-api.md](guides/example-api.md) | 학습용 예시 API 따라 하기(b·c·d 파트별) | 예시 API와 함께 삭제 예정 |
 | [decisions/0001-초기-설정.md](decisions/0001-초기-설정.md) | 결정 기록(ADR): 웹서버 초기 설정 W01~W39 | 채택 |
 | [troubleshooting/README.md](troubleshooting/README.md) | 문제 해결 기록(가설 → 반증 → 원인 → 조치 → 배운 것) | 진행형 |
+| [migrations.md](migrations.md) | Flyway 마이그레이션 번호 표와 번호 규칙 | 진행형 |
+| [erd/stage.md](erd/stage.md) | ERD: 스테이지 진행(`account_stage_progress`) | 초안 |
 
 ## 다른 곳에 있는 문서
 
