@@ -89,7 +89,8 @@ src/main/java/com/pw01/webserver/
 │   ├─ entity/            ← BaseEntity(생성·수정 시각)
 │   └─ error/             ← 공통 오류 응답, 상태별 예외, GlobalExceptionHandler
 ├─ config/                ← 설정(JpaAuditingConfig)
-└─ example/               ← 학습용 예시 API(삭제 예정): controller · service · repository · entity · dto
+├─ account/               ← 계정(메인화면 값): controller · service · repository · entity · dto
+└─ auth/                  ← 인증(가입·로그인·세션·인터셉터): controller · service · repository · dto · interceptor
 src/main/resources/
 ├─ application.properties         ← 공통 설정
 ├─ application-local.properties   ← 각자 PC(compose)
@@ -105,13 +106,13 @@ src/test/java/com/pw01/webserver/ ← @IntegrationTest(Testcontainers), @WebMvcT
 
 - 명세 원본은 루트 `docs/contracts/`입니다. 공통 규칙(경로는 기능 이름부터·버전 없음, 시각 UTC, 오류 응답 `{code, message, path, errors}`)은 그 폴더의 README.md에 있습니다.
 - Swagger UI는 실행 중인 서버를 확인하는 보기입니다. 명세와 다르면 명세가 기준입니다.
-- 지금 있는 API는 학습용 예시 `/api/v1/examples`입니다(경로 규칙이 바뀌기 전에 만든 옛 경로, S1 때 지움). 따라 하기: [docs/guides/example-api.md](docs/guides/example-api.md)
+- 지금 있는 API는 S1 인증·계정입니다(`/auth/*`, `/accounts/me`). 명세: 루트 `docs/contracts/auth-api.md`·`account-api.md`
 
 ## 제약·인덱스와 이유
 
 | 테이블 | 제약·인덱스 | 이유 |
 |---|---|---|
-| `example` | `uk_example_name` (name 유일) | 같은 이름을 두 번 만들지 않는다. 동시 요청은 DB 제약이 마지막으로 막는다(학습용) |
+| `account` | `uk_account_login_id` (login_id 유일, 대소문자 구분) · `uk_account_nickname` (nickname 유일) | 같은 아이디·닉네임을 두 번 만들지 않는다. 동시 가입은 DB 제약이 마지막으로 막는다(409로 바꿈) |
 
 테이블을 더하면 이 표에 함께 적습니다.
 

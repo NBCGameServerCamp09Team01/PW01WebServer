@@ -101,7 +101,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.badRequest().body(ErrorResponse.ofValidation(path(request), errors));
     }
 
-    /** 경로·쿼리 값의 형식이 틀림(예: 숫자 자리에 /examples/abc) */
+    /** 경로·쿼리 값의 형식이 틀림(예: 숫자 자리에 문자를 보냄) */
     @Override
     protected ResponseEntity<Object> handleTypeMismatch(
             TypeMismatchException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
