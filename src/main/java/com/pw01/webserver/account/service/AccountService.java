@@ -16,9 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -65,6 +67,12 @@ public class AccountService {
     public Optional<LoginCandidate> findLoginCandidate(String loginId) {
         return accountRepository.findByLoginId(loginId)
                 .map(account -> new LoginCandidate(account.getId(), account.getPasswordHash(), account.getStatus()));
+    }
+
+    /** 계정 ID → 닉네임. 다른 기능의 목록(예: 진행 중 스테이지 플레이)에 이름을 붙일 때 쓴다. 없는 ID는 빠진다 */
+    public Map<Long, String> getNicknames(Collection<Long> accountIds) {
+        return accountRepository.findAllById(accountIds).stream()
+                .collect(Collectors.toMap(Account::getId, Account::getNickname));
     }
 
     /** 메인화면 값. 계정은 있는데 진행 행이 없으면 데이터 버그라 500으로 둔다 */

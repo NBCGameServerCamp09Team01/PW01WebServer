@@ -2,6 +2,7 @@ package com.pw01.webserver.run.entity;
 
 import com.pw01.webserver.account.service.LevelGain;
 import com.pw01.webserver.common.entity.BaseEntity;
+import com.pw01.webserver.stageplay.entity.StagePlay;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -76,7 +77,7 @@ public class RunResult extends BaseEntity {
     private String requestId;
 
     /** 검사를 통과한 결과와 계산한 보상으로 한 줄을 만든다. 판의 값(스테이지·난이도·웨이브 수)은 판 행에서 가져온다 */
-    public static RunResult of(Run run, String requestId, boolean cleared, int reachedWave, int reportedWaveCount,
+    public static RunResult of(StagePlay run, String requestId, boolean cleared, int reachedWave, int reportedWaveCount,
                                long playTimeMs, int earnedGold, int killCount, LevelGain gain) {
         RunResult result = new RunResult();
         result.runId = run.getId();

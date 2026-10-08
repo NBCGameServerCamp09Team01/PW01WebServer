@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * S2 판 시작(R1)·결과 제출(R2)을 앱 전체 + 실제 MySQL·Redis로 확인한다(루트 docs/contracts/result-api.md).
  * 목표 흐름 "스테이지 1 클리어 → 저장 → 2 열림 → 2 플레이"와 d의 P3 흐름(stage-lines-for-c-1008.md 6장)을 포함한다.
  * 필수 시험: 서버 판정(보상), 중복 방지(같은 판 두 번 → 한 번), 예외(상태·코드).
- * 실패하면 RunService·RunResultService 검사 순서, V5 마이그레이션, LevelCurve, d의 StageProgressService 호출 자리를 의심한다.
+ * 판 시작은 스테이지 플레이 API(POST /accounts/me/stage-plays)로 옮겼다. 실패하면 StagePlayService·RunResultService 검사 순서, V5 마이그레이션, LevelCurve, d의 StageProgressService 호출 자리를 의심한다.
  * 테스트끼리 DB를 함께 쓰므로 아이디·닉네임을 서로 다르게 쓴다(RunFlow01~).
  */
 @IntegrationTest
@@ -144,11 +144,11 @@ class RunFlowApiTest {
         String requestId = newId();
         String first = JsonPath.read(startRun(token, requestId, STAGE_1)
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.runId").value(matchesPattern(UUID_LOWER)))
+                .andExpect(jsonPath("$.data.stagePlayId").value(matchesPattern(UUID_LOWER)))
                 .andExpect(jsonPath("$.data.waveCount").value(5))
-                .andReturn().getResponse().getContentAsString(), "$.data.runId");
+                .andReturn().getResponse().getContentAsString(), "$.data.stagePlayId");
         String second = JsonPath.read(startRun(token, requestId, STAGE_1).andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString(), "$.data.runId");
+                .andReturn().getResponse().getContentAsString(), "$.data.stagePlayId");
         assertThat(second).isEqualTo(first);
     }
 
@@ -208,7 +208,7 @@ class RunFlowApiTest {
     void 만료된_판은_409() throws Exception {
         String token = signupAndLogin("RunFlow08", "판흐름08");
         String run = startRunOk(token, STAGE_1);
-        jdbc.update("UPDATE run SET expires_at = DATE_SUB(NOW(3), INTERVAL 1 SECOND) WHERE run_id = ?", run);
+        jdbc.update("UPDATE stage_play SET expires_at = DATE_SUB(NOW(3), INTERVAL 1 SECOND) WHERE stage_play_id = ?", run);
 
         submit(token, run, resultBody(newId(), STAGE_1, true, 5))
                 .andExpect(status().isConflict())
@@ -239,14 +239,14 @@ class RunFlowApiTest {
     @Test
     void 판_시작_형식() throws Exception {
         String token = signupAndLogin("RunFlow10", "판흐름10");
-        mockMvc.perform(post("/runs").header(HttpHeaders.AUTHORIZATION, bearer(token))
+        mockMvc.perform(post("/accounts/me/stage-plays").header(HttpHeaders.AUTHORIZATION, bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"requestId": "%s", "stageId": "%s", "difficulty": 1}
                                 """.formatted(newId(), STAGE_1)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
-        mockMvc.perform(post("/runs").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/accounts/me/stage-plays").contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"requestId": "%s", "stageId": "%s"}
                                 """.formatted(newId(), STAGE_1)))
@@ -259,11 +259,11 @@ class RunFlowApiTest {
     private String startRunOk(String token, String stageId) throws Exception {
         String body = startRun(token, newId(), stageId).andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
-        return JsonPath.read(body, "$.data.runId");
+        return JsonPath.read(body, "$.data.stagePlayId");
     }
 
     private ResultActions startRun(String token, String requestId, String stageId) throws Exception {
-        return mockMvc.perform(post("/runs").header(HttpHeaders.AUTHORIZATION, bearer(token))
+        return mockMvc.perform(post("/accounts/me/stage-plays").header(HttpHeaders.AUTHORIZATION, bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"requestId": "%s", "stageId": "%s"}

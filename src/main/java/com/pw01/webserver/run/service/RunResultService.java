@@ -7,12 +7,12 @@ import com.pw01.webserver.config.RunProperties;
 import com.pw01.webserver.run.dto.ResultSubmitRequest;
 import com.pw01.webserver.run.dto.ResultSubmitResponse;
 import com.pw01.webserver.run.dto.RunResultResponse;
-import com.pw01.webserver.run.entity.Run;
 import com.pw01.webserver.run.entity.RunResult;
-import com.pw01.webserver.run.repository.RunRepository;
 import com.pw01.webserver.run.repository.RunResultRepository;
 import com.pw01.webserver.stage.service.StageProgressService;
 import com.pw01.webserver.stage.service.StageWaveRule;
+import com.pw01.webserver.stageplay.entity.StagePlay;
+import com.pw01.webserver.stageplay.repository.StagePlayRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +44,7 @@ public class RunResultService {
     private static final Pattern RUN_ID = Pattern.compile(
             "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
-    private final RunRepository runRepository;
+    private final StagePlayRepository stagePlayRepository;
     private final RunResultRepository runResultRepository;
     private final AccountService accountService;
     private final StageProgressService stageProgressService;
@@ -78,7 +78,7 @@ public class RunResultService {
     private ResultSubmitResponse submitOnce(Long accountId, String runId, String requestId,
                                             ResultSubmitRequest request) {
         // 1. 내 판인가(남의 판도 없는 것과 같음)
-        Run run = runRepository.findByIdAndAccountId(runId, accountId).orElseThrow(RunErrors::runNotFound);
+        StagePlay run = stagePlayRepository.findByIdAndAccountId(runId, accountId).orElseThrow(RunErrors::runNotFound);
 
         // 2. 이미 결과가 있으면 처음 결과를 돌려준다(판 번호가 이김). 아래 검사·저장·recordResult를 지나지 않는다
         Optional<RunResult> existing = runResultRepository.findById(runId);
@@ -102,7 +102,9 @@ public class RunResultService {
         RunResult result = runResultRepository.saveAndFlush(RunResult.of(run, requestId, cleared,
                 request.reachedWave(), request.totalWaveCount(), playTimeMs, request.earnedGold(),
                 request.killCount(), reward.gain()));
-        run.finish(now);
+        // d(스테이지 플레이): 플레이를 CLEARED·FAILED로 끝낸다. 포기로 이미 끝난 플레이면 409 STAGE_PLAY_NOT_IN_PROGRESS로
+        // 이 트랜잭션 전체(보상·결과 포함)가 되돌아간다(질문서 A2·A3 추천안, 회의 전 가정)
+        run.endWithResult(cleared, now);
 
         // 5. d의 줄(stage-lines-for-c-1008.md 4장): 같은 트랜잭션에서 클리어 기록. 스테이지·판 번호는 판 행 값
         boolean firstClear = stageProgressService.recordResult(accountId, run.getStageId(), cleared, run.getId());
@@ -114,7 +116,7 @@ public class RunResultService {
     }
 
     /** result-api.md "검사" 3~6. 걸리면 저장하지 않고 거절(retryable false) */
-    private void validate(Run run, ResultSubmitRequest request, Instant now) {
+    private void validate(StagePlay run, ResultSubmitRequest request, Instant now) {
         if (run.isExpiredAt(now)) {
             throw RunErrors.runExpired();
         }
@@ -142,7 +144,7 @@ public class RunResultService {
         }
 
         double playTime = request.playTimeSeconds();
-        Duration elapsed = Duration.between(run.getIssuedAt(), now).plus(runProperties.playTimeSlack());
+        Duration elapsed = Duration.between(run.getStartedAt(), now).plus(runProperties.playTimeSlack());
         if (playTime < 0 || playTime > runProperties.playTimeMax().toSeconds()
                 || playTime > elapsed.toMillis() / 1000.0) {
             log.warn("플레이 시간 거절 runId={} playTime={} elapsedWithSlack={}s", run.getId(), playTime,

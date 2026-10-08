@@ -1,46 +1,57 @@
--- S2 결과 제출 + 보상: 판(run) · 결과 요약(run_result) · 계정 변경 내역(account_ledger) · 계정 누적 통계(account_stat_total).
--- 명세: 루트 docs/contracts/result-api.md v1. 시각은 UTC DATETIME(3)(BaseEntity).
--- 판 번호는 서버가 발급하는 UUID(소문자·하이픈 36자). 판 번호를 담는 칼럼은 모두 CHAR(36) COLLATE utf8mb4_0900_bin이다
+-- S2: 스테이지 플레이(stage_play) · 결과 요약(run_result) · 계정 변경 내역(account_ledger) · 계정 누적 통계(account_stat_total).
+-- 시각은 UTC DATETIME(3)(BaseEntity).
+-- 스테이지 플레이 ID는 서버가 발급하는 UUID(소문자·하이픈 36자). 이 ID를 담는 칼럼은 모두 CHAR(36) COLLATE utf8mb4_0900_bin이다
 --   (V4 account_stage_progress.first_clear_run_id와 같은 정의. 정렬 규칙이 다르면 외래 키·조인이 실패한다).
 -- stage_id는 V4와 같은 정의(VARCHAR(64) utf8mb4_0900_bin, master/stages.json 키).
--- run의 run_id·stage_id·wave_count 줄과 CHECK는 d(스테이지 담당)가 쓴 줄이다(stage-lines-for-c-1008.md 1장).
--- 같은 판의 결과가 두 번 반영되지 않게 하는 마지막 방어는 run_result의 기본 키(run_id)다.
+-- 같은 플레이의 결과가 두 번 반영되지 않게 하는 마지막 방어는 run_result의 기본 키(run_id = 스테이지 플레이 ID)다.
+-- 결과 쪽 표·칼럼 이름(run_result.run_id 등)은 결과 API(c)와 정한 뒤 바꾼다.
 
-CREATE TABLE run
+-- 계정이 스테이지 하나를 한 번 플레이하는 것(시작 → 결과·포기·만료). 계정당 진행 중은 하나다(in_progress_account_id 유일 제약).
+-- 상태는 한 방향: IN_PROGRESS → CLEARED·FAILED(결과, 포기) 또는 EXPIRED(마감 지남, 다시 읽을 때 서버가 바꿈).
+CREATE TABLE stage_play
 (
-    run_id           CHAR(36)    COLLATE utf8mb4_0900_bin NOT NULL COMMENT '판 번호(UUID 소문자·하이픈 36자). 서버가 발급',
-    account_id       BIGINT      NOT NULL COMMENT 'account.account_id',
+    stage_play_id    CHAR(36)    COLLATE utf8mb4_0900_bin NOT NULL COMMENT '스테이지 플레이 ID(UUID 소문자·하이픈 36자). 서버가 발급',
+    account_id       BIGINT      NOT NULL COMMENT 'account.account_id. 플레이 주인',
     stage_id         VARCHAR(64) COLLATE utf8mb4_0900_bin NOT NULL COMMENT 'master/stages.json 스테이지 키',
-    wave_count       INT         NOT NULL COMMENT '판 시작 때의 서버 waveCount. 결과 검사 기준(판 유효 24시간 중 마스터가 바뀌어도 그대로)',
-    difficulty       INT         NOT NULL COMMENT '난이도. 지금은 0만',
-    status           VARCHAR(20) NOT NULL COMMENT 'ISSUED(발급됨), FINISHED(결과 받음)',
-    start_request_id CHAR(36)    COLLATE utf8mb4_0900_bin NOT NULL COMMENT '판 시작 요청의 requestId. 같은 값으로 다시 오면 같은 판을 돌려준다',
-    issued_at        DATETIME(3) NOT NULL COMMENT '발급 시각(UTC)',
-    expires_at       DATETIME(3) NOT NULL COMMENT '결과를 낼 수 있는 마지막 시각(발급 + 24시간)',
-    finished_at      DATETIME(3) NULL COMMENT '결과를 받은 시각',
+    wave_count       INT         NOT NULL COMMENT '시작 때의 서버 waveCount. 결과 검사 기준(유효 24시간 중 마스터가 바뀌어도 그대로)',
+    difficulty       INT         NOT NULL DEFAULT 0 COMMENT '난이도. 0 = 난이도 조절 없음(기본). 레벨 스케일링 등은 나중',
+    status           VARCHAR(20) NOT NULL COMMENT 'IN_PROGRESS, CLEARED, FAILED, EXPIRED',
+    end_reason       VARCHAR(20) NULL COMMENT '끝난 이유: RESULT(결과 제출), ABANDONED(포기, 상태는 FAILED), EXPIRED. 진행 중이면 NULL',
+    start_request_id CHAR(36)    COLLATE utf8mb4_0900_bin NOT NULL COMMENT '시작 요청의 requestId. 같은 값으로 다시 오면 같은 플레이를 돌려준다',
+    started_at       DATETIME(3) NOT NULL COMMENT '시작 시각(UTC)',
+    expires_at       DATETIME(3) NOT NULL COMMENT '결과를 낼 수 있는 마지막 시각(시작 + 24시간)',
+    ended_at         DATETIME(3) NULL COMMENT '끝난 시각. 진행 중이면 NULL',
+    in_progress_account_id BIGINT GENERATED ALWAYS AS (IF(status = 'IN_PROGRESS', account_id, NULL)) STORED
+        COMMENT '진행 중이면 account_id, 아니면 NULL. 유일 제약으로 계정당 진행 중 하나(NULL은 여러 개 허용). 엔티티에는 없음',
     created_at       DATETIME(3) NOT NULL,
     updated_at       DATETIME(3) NOT NULL,
-    PRIMARY KEY (run_id),
-    CONSTRAINT uk_run_account_start_request UNIQUE (account_id, start_request_id),
-    CONSTRAINT fk_run_account FOREIGN KEY (account_id) REFERENCES account (account_id),
-    CONSTRAINT ck_run_run_id CHECK (REGEXP_LIKE(run_id, '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', 'c')),
-    CONSTRAINT ck_run_wave_count CHECK (wave_count >= 1),
-    CONSTRAINT ck_run_difficulty CHECK (difficulty >= 0),
-    CONSTRAINT ck_run_status CHECK (status IN ('ISSUED', 'FINISHED')),
-    INDEX ix_run_account_issued (account_id, issued_at)
+    PRIMARY KEY (stage_play_id),
+    CONSTRAINT uk_stage_play_account_start_request UNIQUE (account_id, start_request_id),
+    CONSTRAINT uk_stage_play_one_in_progress UNIQUE (in_progress_account_id),
+    CONSTRAINT fk_stage_play_account FOREIGN KEY (account_id) REFERENCES account (account_id),
+    CONSTRAINT ck_stage_play_id CHECK (REGEXP_LIKE(stage_play_id, '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', 'c')),
+    CONSTRAINT ck_stage_play_wave_count CHECK (wave_count >= 1),
+    CONSTRAINT ck_stage_play_difficulty CHECK (difficulty >= 0),
+    CONSTRAINT ck_stage_play_status CHECK (status IN ('IN_PROGRESS', 'CLEARED', 'FAILED', 'EXPIRED')),
+    CONSTRAINT ck_stage_play_end_reason CHECK (end_reason IS NULL OR end_reason IN ('RESULT', 'ABANDONED', 'EXPIRED')),
+    CONSTRAINT ck_stage_play_ended CHECK (
+        (status = 'IN_PROGRESS' AND end_reason IS NULL AND ended_at IS NULL)
+        OR (status <> 'IN_PROGRESS' AND end_reason IS NOT NULL AND ended_at IS NOT NULL)),
+    INDEX ix_stage_play_account_started (account_id, started_at),
+    INDEX ix_stage_play_status_started (status, started_at)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci;
 
 CREATE TABLE run_result
 (
-    run_id             CHAR(36)    COLLATE utf8mb4_0900_bin NOT NULL COMMENT 'run.run_id(1:1). 기본 키 = 같은 판 두 번 반영 막기',
+    run_id             CHAR(36)    COLLATE utf8mb4_0900_bin NOT NULL COMMENT 'stage_play.stage_play_id(1:1). 기본 키 = 같은 플레이 두 번 반영 막기',
     account_id         BIGINT      NOT NULL COMMENT 'account.account_id(조회용, run과 같은 값)',
     stage_id           VARCHAR(64) COLLATE utf8mb4_0900_bin NOT NULL COMMENT '판의 스테이지 키(랭킹·난이도가 같은 칼럼을 씀)',
     difficulty         INT         NOT NULL,
     cleared            BOOLEAN     NOT NULL,
     reached_wave       INT         NOT NULL COMMENT '도달한 웨이브(0부터)',
-    wave_count         INT         NOT NULL COMMENT '판의 웨이브 수(run.wave_count)',
+    wave_count         INT         NOT NULL COMMENT '플레이의 웨이브 수(stage_play.wave_count)',
     reported_wave_count INT        NOT NULL COMMENT '게임이 보낸 전체 웨이브 수(검사에 쓰지 않음, 어긋남 추적용)',
     play_time_ms       BIGINT      NOT NULL COMMENT '플레이 시간(밀리초)',
     earned_gold        INT         NOT NULL,
@@ -53,7 +64,7 @@ CREATE TABLE run_result
     created_at         DATETIME(3) NOT NULL COMMENT '저장 시각 = 응답의 submittedAt',
     updated_at         DATETIME(3) NOT NULL,
     PRIMARY KEY (run_id),
-    CONSTRAINT fk_run_result_run FOREIGN KEY (run_id) REFERENCES run (run_id),
+    CONSTRAINT fk_run_result_run FOREIGN KEY (run_id) REFERENCES stage_play (stage_play_id),
     CONSTRAINT fk_run_result_account FOREIGN KEY (account_id) REFERENCES account (account_id),
     CONSTRAINT ck_run_result_numbers CHECK (reached_wave >= 0 AND wave_count >= 1 AND play_time_ms >= 0
         AND earned_gold >= 0 AND kill_count >= 0 AND exp_gained >= 0 AND stat_points_gained >= 0),
