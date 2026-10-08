@@ -19,6 +19,15 @@ public final class CommonErrorCode {
     /** 503: MySQL·Redis에 닿지 못함. 잠시 뒤 다시 보내면 될 수 있다 */
     public static final String SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE";
 
+    /** 409: 같은 requestId로 다른 본문을 보냄. retryable false(게임 버그) */
+    public static final String IDEMPOTENCY_KEY_REUSED = "IDEMPOTENCY_KEY_REUSED";
+
+    /** 409: 같은 requestId의 처음 요청이 아직 처리 중. retryable true(잠시 뒤 같은 요청) */
+    public static final String REQUEST_IN_PROGRESS = "REQUEST_IN_PROGRESS";
+
+    /** 409: 같은 계정의 요청이 동시에 많아 몇 번 다시 해도 저장하지 못함. retryable true */
+    public static final String VERSION_CONFLICT = "VERSION_CONFLICT";
+
     private CommonErrorCode() {
     }
 
