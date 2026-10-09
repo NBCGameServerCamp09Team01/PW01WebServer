@@ -112,7 +112,7 @@ class StageProgressServiceTest {
         List<AccountStageProgress> rows = repository.findAllByAccountId(accountId);
         assertThat(rows).hasSize(1);
         assertThat(rows.getFirst().getFirstClearedAt()).isEqualTo(first.getFirstClearedAt());
-        assertThat(rows.getFirst().getFirstClearRunId()).isEqualTo(RUN_1);
+        assertThat(rows.getFirst().getFirstClearStagePlayId()).isEqualTo(RUN_1);
     }
 
     // 확인: 트랜잭션 없이 부르면 예외(결과와 진행이 따로 커밋되는 것을 막음), 행도 없음

@@ -34,9 +34,12 @@ public class AccountStageProgress extends BaseEntity {
     @Column(nullable = false)
     private Instant firstClearedAt;
 
-    /** 처음 클리어한 판 번호(UUID 소문자·하이픈 36자). S2 판 표와 같은 정의, 외래 키 없음 */
+    /**
+     * 처음 클리어한 스테이지 플레이 ID(UUID 소문자·하이픈 36자). stage_play 표와 같은 정의, 외래 키 없음.
+     * DB 칼럼 이름은 V4(dev 병합됨) 그대로 first_clear_run_id다(예전 이름 "판 번호", 값은 같은 것).
+     */
     @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(length = 36)
-    private String firstClearRunId;
+    @Column(name = "first_clear_run_id", length = 36)
+    private String firstClearStagePlayId;
 
 }

@@ -48,7 +48,7 @@ class StageProgressSchemaTest {
         assertThat(rows).hasSize(1);
         assertThat(rows.getFirst().getStageId()).isEqualTo("stage.01.01");
         assertThat(rows.getFirst().getFirstClearedAt()).isEqualTo(CLEARED_AT);
-        assertThat(rows.getFirst().getFirstClearRunId()).isEqualTo(RUN_1);
+        assertThat(rows.getFirst().getFirstClearStagePlayId()).isEqualTo(RUN_1);
         assertThat(repository.existsByAccountIdAndStageId(accountId, "stage.01.01")).isTrue();
         assertThat(repository.existsByAccountIdAndStageId(accountId, "stage.01.02")).isFalse();
     }
@@ -123,7 +123,7 @@ class StageProgressSchemaTest {
         List<AccountStageProgress> rows = repository.findAllByAccountId(accountId);
         assertThat(rows).hasSize(1);
         assertThat(rows.getFirst().getFirstClearedAt()).isEqualTo(CLEARED_AT);
-        assertThat(rows.getFirst().getFirstClearRunId()).isEqualTo(RUN_1);
+        assertThat(rows.getFirst().getFirstClearStagePlayId()).isEqualTo(RUN_1);
     }
 
     // 확인: insertIfAbsent도 외래 키 위반은 그대로 예외(INSERT IGNORE처럼 숨기지 않음)
