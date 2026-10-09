@@ -60,6 +60,7 @@ class StageResultApiTest {
 
         submit(token, play1, resultBody(newId(), STAGE_1, true, 5))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.saveStatus").value("SAVED"))
                 .andExpect(jsonPath("$.data.result.stagePlayId").value(play1))
                 .andExpect(jsonPath("$.data.result.stageId").value(STAGE_1))
                 .andExpect(jsonPath("$.data.result.cleared").value(true))
@@ -90,15 +91,19 @@ class StageResultApiTest {
                 .andExpect(jsonPath("$.data.statPoints").value(6));
     }
 
-    // 확인(중복 방지): 같은 플레이에 다른 requestId로 다시 내면 처음 결과를 돌려주고 계정·진행·변경 내역은 그대로
+    // 확인(중복 방지): 같은 플레이에 다른 requestId로 다시 내면 처음 결과를 돌려주고 계정·진행·변경 내역은 그대로.
+    //            saveStatus는 처음 SAVED, 다시 낸 것 ALREADY_SAVED(게임은 둘 다 "저장됨"으로 본다)
     @Test
     void 같은_플레이를_다시_내도_한_번만_반영() throws Exception {
         String token = signupAndLogin("ResultFlow02", "결과흐름02");
         String play = startPlayOk(token, STAGE_1);
-        submit(token, play, resultBody(newId(), STAGE_1, true, 5)).andExpect(status().isOk());
+        submit(token, play, resultBody(newId(), STAGE_1, true, 5))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.saveStatus").value("SAVED"));
 
         submit(token, play, resultBody(newId(), STAGE_1, false, 1))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.saveStatus").value("ALREADY_SAVED"))
                 .andExpect(jsonPath("$.data.result.cleared").value(true))
                 .andExpect(jsonPath("$.data.result.reward.expGained").value(300))
                 .andExpect(jsonPath("$.data.account.accountLevel").value(3))
@@ -111,25 +116,30 @@ class StageResultApiTest {
                 accountId)).isEqualTo(1);
     }
 
-    // 확인(중복 방지·동시): 같은 플레이의 결과 둘이 동시에 와도 보상은 한 번(플레이 ID 기본 키 + 재시도)
+    // 확인(중복 방지·동시): 같은 플레이의 결과 둘이 동시에 와도 보상은 한 번(플레이 ID 기본 키 + 재시도).
+    //            응답은 둘 다 200이고 saveStatus는 SAVED 하나·ALREADY_SAVED 하나.
+    //            둘 다 SAVED면 기본 키 충돌 뒤 재시도가 "이미 결과 있음" 길(submitOnce 2번)을 안 탄 것
     @Test
     void 같은_플레이_결과가_동시에_와도_한_번() throws Exception {
         String token = signupAndLogin("ResultFlow03", "결과흐름03");
         String play = startPlayOk(token, STAGE_1);
 
+        List<String> saveStatuses = new ArrayList<>();
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
-            List<Callable<Integer>> calls = new ArrayList<>();
+            List<Callable<String>> calls = new ArrayList<>();
             for (int i = 0; i < 2; i++) {
                 calls.add(() -> submit(token, play, resultBody(newId(), STAGE_1, true, 5))
-                        .andReturn().getResponse().getStatus());
+                        .andExpect(status().isOk())
+                        .andReturn().getResponse().getContentAsString());
             }
-            for (Future<Integer> f : pool.invokeAll(calls)) {
-                assertThat(f.get()).isEqualTo(200);
+            for (Future<String> f : pool.invokeAll(calls)) {
+                saveStatuses.add(JsonPath.read(f.get(), "$.data.saveStatus"));
             }
         } finally {
             pool.shutdown();
         }
+        assertThat(saveStatuses).containsExactlyInAnyOrder("SAVED", "ALREADY_SAVED");
 
         long accountId = accountId("ResultFlow03");
         assertThat(count("SELECT total_experience FROM account_progress WHERE account_id = ?", accountId))
@@ -246,6 +256,40 @@ class StageResultApiTest {
         assertThat(count("SELECT COUNT(*) FROM stage_play_result WHERE account_id = ?", accountId)).isZero();
     }
 
+    // 확인(결과 다시 받기): 제출 전 404 STAGE_RESULT_NOT_FOUND → 제출 뒤 200(제출 응답의 result와 같은 값)
+    //            → 남의 플레이 404 STAGE_PLAY_NOT_FOUND(있는지 알려 주지 않음), UUID가 아닌 ID 400.
+    //            실패하면 StageResultService.get의 검사 순서, StageResultResponse.from(저장 시각 정밀도)을 의심한다
+    @Test
+    void 저장된_결과를_다시_받는다() throws Exception {
+        String owner = signupAndLogin("ResultFlow12", "결과흐름12");
+        String other = signupAndLogin("ResultFlow13", "결과흐름13");
+        String play = startPlayOk(owner, STAGE_1);
+
+        getResult(owner, play)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("STAGE_RESULT_NOT_FOUND"))
+                .andExpect(jsonPath("$.retryable").value(false));
+
+        String submitted = submit(owner, play, resultBody(newId(), STAGE_1, true, 5))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String fetched = getResult(owner, play)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stagePlayId").value(play))
+                .andExpect(jsonPath("$.data.reward.levelAfter").value(3))
+                .andReturn().getResponse().getContentAsString();
+        Object submittedResult = JsonPath.read(submitted, "$.data.result");
+        Object fetchedResult = JsonPath.read(fetched, "$.data");
+        assertThat(fetchedResult).isEqualTo(submittedResult);
+
+        getResult(other, play)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("STAGE_PLAY_NOT_FOUND"));
+        getResult(owner, "not-a-uuid")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("stagePlayId"));
+    }
+
     // 확인: 실패한 플레이는 경험치 60, 진행 행 없음(스테이지 2는 여전히 잠김). 변경 내역 합 = 총 경험치
     @Test
     void 실패한_플레이와_합계_대조() throws Exception {
@@ -304,6 +348,11 @@ class StageResultApiTest {
         return mockMvc.perform(post("/accounts/me/stage-plays/{stagePlayId}/result", stagePlayId).header(HttpHeaders.AUTHORIZATION, bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
+    }
+
+    private ResultActions getResult(String token, String stagePlayId) throws Exception {
+        return mockMvc.perform(get("/accounts/me/stage-plays/{stagePlayId}/result", stagePlayId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(token)));
     }
 
     /** 플레이 시간 1초(시작 직후라도 경과 + 여유 60초 안) */
