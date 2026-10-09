@@ -30,10 +30,10 @@ public class AccountService {
     static final String LOGIN_ID_DUPLICATED = "ACCOUNT_LOGIN_ID_DUPLICATED";
     static final String NICKNAME_DUPLICATED = "ACCOUNT_NICKNAME_DUPLICATED";
     /** 누적 통계 키(account_stat_total). S4 해금 조건 재료 */
-    public static final String STAT_RUN_PLAYED = "run.played";
-    public static final String STAT_RUN_CLEARED = "run.cleared";
-    public static final String STAT_RUN_KILLS = "run.kills";
-    public static final String STAT_RUN_GOLD = "run.gold";
+    public static final String STAT_STAGE_PLAY_PLAYED = "stage_play.played";
+    public static final String STAT_STAGE_PLAY_CLEARED = "stage_play.cleared";
+    public static final String STAT_STAGE_PLAY_KILLS = "stage_play.kills";
+    public static final String STAT_STAGE_PLAY_GOLD = "stage_play.gold";
     private static final String UK_LOGIN_ID = "uk_account_login_id";
     private static final String UK_NICKNAME = "uk_account_nickname";
 
@@ -89,7 +89,7 @@ public class AccountService {
      * 스냅샷은 저장(flush)한 뒤에 만들어 올라간 version을 담는다.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public StageRewardResult grantStageReward(Long accountId, String runId, String requestId, boolean cleared,
+    public StageRewardResult grantStageReward(Long accountId, String stagePlayId, String requestId, boolean cleared,
                                               int killCount, int earnedGold) {
         AccountProgress progress = accountProgressRepository.findById(accountId)
                 .orElseThrow(() -> new IllegalStateException("account_progress가 없습니다. accountId=" + accountId));
@@ -98,14 +98,14 @@ public class AccountService {
         progress.apply(gain);
         accountProgressRepository.saveAndFlush(progress);
 
-        accountLedgerRepository.save(AccountLedger.stageReward(accountId, runId, requestId,
+        accountLedgerRepository.save(AccountLedger.stageReward(accountId, stagePlayId, requestId,
                 gain.expGained(), gain.statPointsGained()));
 
         Map<String, Long> stats = new LinkedHashMap<>();
-        stats.put(STAT_RUN_PLAYED, 1L);
-        stats.put(STAT_RUN_CLEARED, cleared ? 1L : 0L);
-        stats.put(STAT_RUN_KILLS, (long) killCount);
-        stats.put(STAT_RUN_GOLD, (long) earnedGold);
+        stats.put(STAT_STAGE_PLAY_PLAYED, 1L);
+        stats.put(STAT_STAGE_PLAY_CLEARED, cleared ? 1L : 0L);
+        stats.put(STAT_STAGE_PLAY_KILLS, (long) killCount);
+        stats.put(STAT_STAGE_PLAY_GOLD, (long) earnedGold);
         accountStatTotalRepository.add(accountId, stats);
 
         return new StageRewardResult(gain, AccountSnapshotResponse.from(progress));

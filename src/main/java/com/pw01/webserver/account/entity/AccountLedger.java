@@ -26,8 +26,8 @@ public class AccountLedger extends BaseEntity {
 
     /** 결과 보상 */
     public static final String KIND_STAGE_REWARD = "STAGE_REWARD";
-    /** 출처: 판 */
-    public static final String SOURCE_RUN = "RUN";
+    /** 출처: 스테이지 플레이 */
+    public static final String SOURCE_STAGE_PLAY = "STAGE_PLAY";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,15 +59,15 @@ public class AccountLedger extends BaseEntity {
     @Column(nullable = false, length = 36)
     private String requestId;
 
-    public static AccountLedger stageReward(Long accountId, String runId, String requestId, long expDelta,
+    public static AccountLedger stageReward(Long accountId, String stagePlayId, String requestId, long expDelta,
                                             int pointDelta) {
         AccountLedger ledger = new AccountLedger();
         ledger.accountId = accountId;
         ledger.kind = KIND_STAGE_REWARD;
         ledger.expDelta = expDelta;
         ledger.pointDelta = pointDelta;
-        ledger.sourceType = SOURCE_RUN;
-        ledger.sourceId = runId;
+        ledger.sourceType = SOURCE_STAGE_PLAY;
+        ledger.sourceId = stagePlayId;
         ledger.requestId = requestId;
         return ledger;
     }

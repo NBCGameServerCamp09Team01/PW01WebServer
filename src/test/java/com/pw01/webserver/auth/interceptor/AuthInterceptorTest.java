@@ -87,7 +87,7 @@ class AuthInterceptorTest {
         when(authService.authenticate(any())).thenThrow(
                 new UnauthorizedException("AUTH_TOKEN_MISSING", "로그인이 필요합니다."));
 
-        mockMvc.perform(post("/runs"))
+        mockMvc.perform(post("/new-feature"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTH_TOKEN_MISSING"));
     }
@@ -110,7 +110,7 @@ class AuthInterceptorTest {
         void open() {
         }
 
-        @PostMapping("/runs")
+        @PostMapping("/new-feature")
         void secured() {
         }
 

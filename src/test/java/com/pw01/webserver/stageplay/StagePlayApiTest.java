@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 스테이지 플레이 시작·현황(공유 초안 stage-play-api-draft-1009.md P1~P5)을 앱 전체 + 실제 MySQL·Redis로 확인한다.
  * 필수 시험: 중복 방지(같은 시작 요청, 동시 시작, 계정당 진행 중 하나), 예외(상태·코드), 스테이지 진행과의 흐름.
  * 실패하면 StagePlayService의 판단 순서, V5 stage_play의 유일 제약(uk_stage_play_one_in_progress), StagePlay 상태 함수,
- * RunResultService의 endWithResult 자리를 의심한다.
+ * StageResultService의 상태 검사·endWithResult 자리를 의심한다.
  * 테스트끼리 DB를 함께 쓰므로 아이디·닉네임을 서로 다르게 쓴다(StagePlay01~).
  */
 @IntegrationTest
@@ -122,7 +122,7 @@ class StagePlayApiTest {
         // 포기는 결과·보상을 남기지 않는다
         long accountId = accountId("StagePlay03");
         assertThat(count("SELECT COUNT(*) FROM account_ledger WHERE account_id = ?", accountId)).isZero();
-        assertThat(count("SELECT COUNT(*) FROM run_result WHERE account_id = ?", accountId)).isZero();
+        assertThat(count("SELECT COUNT(*) FROM stage_play_result WHERE account_id = ?", accountId)).isZero();
     }
 
     // 확인(동시): 다른 requestId로 동시에 두 번 시작해도 진행 중은 하나. 하나는 201, 하나는 409
@@ -205,7 +205,7 @@ class StagePlayApiTest {
         submitResult(token, abandoned, false)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("STAGE_PLAY_NOT_IN_PROGRESS"));
-        assertThat(count("SELECT COUNT(*) FROM run_result WHERE run_id = ?", abandoned)).isZero();
+        assertThat(count("SELECT COUNT(*) FROM stage_play_result WHERE stage_play_id = ?", abandoned)).isZero();
         assertThat(count("SELECT COUNT(*) FROM account_ledger WHERE account_id = ?", accountId("StagePlay08")))
                 .isEqualTo(1);
     }
@@ -283,9 +283,9 @@ class StagePlayApiTest {
         return mockMvc.perform(post(PLAYS + "/{id}/abandon", id).header(HttpHeaders.AUTHORIZATION, bearer(token)));
     }
 
-    /** 결과 제출은 지금 결과 API 경로(c와 정하기 전) */
+    /** 결과 제출(결과 API: POST /accounts/me/stage-plays/{id}/result) */
     private ResultActions submitResult(String token, String stagePlayId, boolean cleared) throws Exception {
-        return mockMvc.perform(post("/runs/{runId}/result", stagePlayId).header(HttpHeaders.AUTHORIZATION, bearer(token))
+        return mockMvc.perform(post(PLAYS + "/{id}/result", stagePlayId).header(HttpHeaders.AUTHORIZATION, bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"requestId": "%s", "stageId": "%s", "cleared": %s, "reachedWave": %d,

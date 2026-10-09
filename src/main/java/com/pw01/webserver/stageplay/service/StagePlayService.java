@@ -1,7 +1,7 @@
 package com.pw01.webserver.stageplay.service;
 
 import com.pw01.webserver.account.service.AccountService;
-import com.pw01.webserver.config.RunProperties;
+import com.pw01.webserver.config.StagePlayProperties;
 import com.pw01.webserver.stage.service.StageDef;
 import com.pw01.webserver.stage.service.StageProgressService;
 import com.pw01.webserver.stageplay.dto.InProgressStagePlayListResponse;
@@ -28,7 +28,7 @@ import java.util.Optional;
 /**
  * 스테이지 플레이 시작·현황(공유 초안 stage-play-api-draft-1009.md P1~P5).
  * 계정당 진행 중은 하나다. 마감이 지난 진행 중 플레이는 따로 도는 정리 작업 없이, 읽거나 새로 시작할 때 EXPIRED로 바꾼다.
- * 결과 제출은 결과 기능(run 패키지)이 맡고, 결과가 저장될 때 StagePlay.endWithResult로 플레이를 끝낸다.
+ * 결과 제출은 결과 기능(stageresult 패키지)이 맡고, 결과가 저장될 때 StagePlay.endWithResult로 플레이를 끝낸다.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,7 +39,7 @@ public class StagePlayService {
     private final StagePlayRepository stagePlayRepository;
     private final StageProgressService stageProgressService;
     private final AccountService accountService;
-    private final RunProperties runProperties;
+    private final StagePlayProperties stagePlayProperties;
     private final TransactionTemplate transactionTemplate;
 
     /**
@@ -82,7 +82,7 @@ public class StagePlayService {
 
         // 4. 발급. 바로 flush해서 동시 시작의 유일 제약 위반을 여기서 드러낸다
         StagePlay play = stagePlayRepository.saveAndFlush(StagePlay.start(accountId, stage,
-                request.difficultyOrDefault(), requestId, now, runProperties.validity()));
+                request.difficultyOrDefault(), requestId, now, stagePlayProperties.validity()));
         log.info("스테이지 플레이 시작 stagePlayId={} accountId={} stage={}", play.getId(), accountId, stage.stageId());
         return StagePlayResponse.from(play);
     }

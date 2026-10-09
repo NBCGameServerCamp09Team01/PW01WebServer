@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class StageApiTest {
 
     private static final String PASSWORD = "stagepass01";
-    private static final String RUN_1 = "3f2b8c1e-7a4d-4e2f-9b10-6c5d4e3f2a1b";
+    private static final String PLAY_1 = "3f2b8c1e-7a4d-4e2f-9b10-6c5d4e3f2a1b";
 
     @Autowired
     MockMvc mockMvc;
@@ -84,7 +84,7 @@ class StageApiTest {
     void 클리어_뒤_진행() throws Exception {
         String token = signupAndLogin("StageApi02", "스테이지API02");
         Long accountId = jdbc.queryForObject("SELECT account_id FROM account WHERE login_id = 'StageApi02'", Long.class);
-        tx.executeWithoutResult(status -> stageProgressService.recordResult(accountId, "stage.01.01", true, RUN_1));
+        tx.executeWithoutResult(status -> stageProgressService.recordResult(accountId, "stage.01.01", true, PLAY_1));
 
         mockMvc.perform(get("/accounts/me/stages").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())

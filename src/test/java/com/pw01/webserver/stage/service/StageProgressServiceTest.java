@@ -31,15 +31,15 @@ import static org.assertj.core.api.Assertions.tuple;
 /**
  * 스테이지 진행 서비스 통합 테스트: 내 진행(ST2) 상태 계산, 판 시작 판정(S2가 부름), 클리어 기록(S2 결과 트랜잭션이 부름).
  * recordResult는 결과 트랜잭션 안에서만 부르므로 시험도 TransactionTemplate으로 트랜잭션을 연다(S2 흉내).
- * 판 번호는 S2와 같은 UUID(소문자·하이픈 36자) 문자열이다.
+ * 스테이지 플레이 ID는 stage_play와 같은 UUID(소문자·하이픈 36자) 문자열이다.
  * 실패하면 StageStatusRule(상태), StageErrors(코드·HTTP 상태), recordResult의 분기와 insertIfAbsent를 의심한다.
  * 테스트끼리 DB를 함께 쓰므로 계정 아이디·닉네임을 서로 다르게 쓴다.
  */
 @IntegrationTest
 class StageProgressServiceTest {
 
-    private static final String RUN_1 = "3f2b8c1e-7a4d-4e2f-9b10-6c5d4e3f2a1b";
-    private static final String RUN_2 = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
+    private static final String PLAY_1 = "3f2b8c1e-7a4d-4e2f-9b10-6c5d4e3f2a1b";
+    private static final String PLAY_2 = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 
     @Autowired
     StageProgressService service;
@@ -80,7 +80,7 @@ class StageProgressServiceTest {
     void 클리어하면_다음이_열림() {
         Long accountId = newAccount("StageSv02", "진행서비스02");
 
-        assertThat(record(accountId, "stage.01.01", true, RUN_1)).isTrue();
+        assertThat(record(accountId, "stage.01.01", true, PLAY_1)).isTrue();
 
         StageProgressListResponse progress = service.getMyProgress(accountId);
         assertThat(progress.clearedCount()).isEqualTo(1);
@@ -94,25 +94,25 @@ class StageProgressServiceTest {
     void 실패는_그대로() {
         Long accountId = newAccount("StageSv03", "진행서비스03");
 
-        assertThat(record(accountId, "stage.01.01", false, RUN_1)).isFalse();
+        assertThat(record(accountId, "stage.01.01", false, PLAY_1)).isFalse();
 
         assertThat(repository.findAllByAccountId(accountId)).isEmpty();
         assertThat(service.getMyProgress(accountId).stages().get(1).status()).isEqualTo(StageStatus.LOCKED);
     }
 
-    // 확인: 다시 클리어해도 행 하나, 처음 클리어 시각·판 번호는 첫 값, 반환 false
+    // 확인: 다시 클리어해도 행 하나, 처음 클리어 시각·플레이 ID는 첫 값, 반환 false
     @Test
     void 다시_클리어해도_그대로() {
         Long accountId = newAccount("StageSv04", "진행서비스04");
-        record(accountId, "stage.01.01", true, RUN_1);
+        record(accountId, "stage.01.01", true, PLAY_1);
         AccountStageProgress first = repository.findAllByAccountId(accountId).getFirst();
 
-        assertThat(record(accountId, "stage.01.01", true, RUN_2)).isFalse();
+        assertThat(record(accountId, "stage.01.01", true, PLAY_2)).isFalse();
 
         List<AccountStageProgress> rows = repository.findAllByAccountId(accountId);
         assertThat(rows).hasSize(1);
         assertThat(rows.getFirst().getFirstClearedAt()).isEqualTo(first.getFirstClearedAt());
-        assertThat(rows.getFirst().getFirstClearStagePlayId()).isEqualTo(RUN_1);
+        assertThat(rows.getFirst().getFirstClearStagePlayId()).isEqualTo(PLAY_1);
     }
 
     // 확인: 트랜잭션 없이 부르면 예외(결과와 진행이 따로 커밋되는 것을 막음), 행도 없음
@@ -120,7 +120,7 @@ class StageProgressServiceTest {
     void 트랜잭션_밖에서는_예외() {
         Long accountId = newAccount("StageSv05", "진행서비스05");
 
-        assertThatThrownBy(() -> service.recordResult(accountId, "stage.01.01", true, RUN_1))
+        assertThatThrownBy(() -> service.recordResult(accountId, "stage.01.01", true, PLAY_1))
                 .isInstanceOf(IllegalTransactionStateException.class);
         assertThat(repository.findAllByAccountId(accountId)).isEmpty();
     }
@@ -133,7 +133,7 @@ class StageProgressServiceTest {
 
         Boolean managed = tx.execute(status -> {
             AccountProgress progress = accountProgressRepository.findById(accountId).orElseThrow();
-            service.recordResult(accountId, "stage.01.01", true, RUN_1);
+            service.recordResult(accountId, "stage.01.01", true, PLAY_1);
             return entityManager.contains(progress);
         });
 
@@ -151,7 +151,7 @@ class StageProgressServiceTest {
                 StageErrors.STAGE_NOT_FOUND, HttpStatus.NOT_FOUND);
         assertThat(service.requireStartable(accountId, "stage.01.01").waveCount()).isEqualTo(5);
 
-        record(accountId, "stage.01.01", true, RUN_1);
+        record(accountId, "stage.01.01", true, PLAY_1);
 
         assertThat(service.requireStartable(accountId, "stage.01.02").stageId()).isEqualTo("stage.01.02");
         assertThat(service.isUnlocked(accountId, "stage.01.01")).isTrue();
@@ -163,7 +163,7 @@ class StageProgressServiceTest {
         Long first = newAccount("StageSv07", "진행서비스07");
         Long second = newAccount("StageSv08", "진행서비스08");
 
-        record(first, "stage.01.01", true, RUN_1);
+        record(first, "stage.01.01", true, PLAY_1);
 
         assertThat(service.getMyProgress(second).stages().get(1).status()).isEqualTo(StageStatus.LOCKED);
         assertThat(service.isUnlocked(second, "stage.01.02")).isFalse();
@@ -176,7 +176,7 @@ class StageProgressServiceTest {
         CountDownLatch start = new CountDownLatch(1);
         Callable<Boolean> clear = () -> {
             start.await();
-            return record(accountId, "stage.01.01", true, RUN_1);
+            return record(accountId, "stage.01.01", true, PLAY_1);
         };
 
         try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
@@ -194,8 +194,8 @@ class StageProgressServiceTest {
         return accountService.register(loginId, "hash", nickname, null).getId();
     }
 
-    private Boolean record(Long accountId, String stageId, boolean cleared, String runId) {
-        return tx.execute(status -> service.recordResult(accountId, stageId, cleared, runId));
+    private Boolean record(Long accountId, String stageId, boolean cleared, String stagePlayId) {
+        return tx.execute(status -> service.recordResult(accountId, stageId, cleared, stagePlayId));
     }
 
     private static void assertApiError(ThrowingCallable call, String code, HttpStatus status) {

@@ -10,13 +10,15 @@ import java.util.List;
 
 /**
  * 스테이지 플레이 오류 코드와 예외(공유 초안 stage-play-api-draft-1009.md 6장).
- * 오류마다 HTTP 상태(예외 클래스)를 이 파일에서만 정한다(StageErrors·RunErrors와 같은 결).
+ * 오류마다 HTTP 상태(예외 클래스)를 이 파일에서만 정한다(StageErrors·StageResultErrors와 같은 결).
+ * 결과 제출도 플레이를 찾지 못함·만료·끝남에는 이 코드를 쓴다.
  */
 public final class StagePlayErrors {
 
     public static final String STAGE_PLAY_NOT_FOUND = "STAGE_PLAY_NOT_FOUND";
     public static final String STAGE_PLAY_IN_PROGRESS = "STAGE_PLAY_IN_PROGRESS";
     public static final String STAGE_PLAY_NOT_IN_PROGRESS = "STAGE_PLAY_NOT_IN_PROGRESS";
+    public static final String STAGE_PLAY_EXPIRED = "STAGE_PLAY_EXPIRED";
 
     private StagePlayErrors() {
     }
@@ -34,6 +36,11 @@ public final class StagePlayErrors {
     /** 409: 이미 끝난 플레이(결과·포기·만료)에 포기·결과를 보냄 */
     public static ConflictException notInProgress() {
         return new ConflictException(STAGE_PLAY_NOT_IN_PROGRESS, "이미 끝난 스테이지 플레이입니다.");
+    }
+
+    /** 409: 마감(시작 + 24시간)이 지난 플레이에 결과를 냄. 다시 보내도 같으므로 retryable false */
+    public static ConflictException expired() {
+        return new ConflictException(STAGE_PLAY_EXPIRED, "스테이지 플레이의 유효 시간이 지나 결과를 저장할 수 없습니다.");
     }
 
     /** 409: 같은 requestId로 다른 스테이지를 시작하려 함(게임 버그) */

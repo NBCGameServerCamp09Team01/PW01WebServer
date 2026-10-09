@@ -18,4 +18,4 @@
 | V2 | `V2__create_account.sql` | S1 계정·계정 진행 | Sang-Hyun-Kim | #4 | 병합됨 |
 | V3 | `V3__drop_example.sql` | S1 정리: 학습용 예시 표 삭제 | Robbie | #8 | 병합됨 |
 | V4 | `V4__create_account_stage_progress.sql` | 스테이지 진행(클리어) | Sang-Hyun-Kim | #9 | 병합됨 |
-| V5 | `V5__create_run_result.sql` | S2 판·결과 요약·변경 내역·누적 통계 | Robbie | — | 작업 중 |
+| V5 | `V5__create_stage_play_result.sql` | S2 스테이지 플레이·결과 요약·변경 내역·누적 통계 | Robbie·Sang-Hyun-Kim | #11 | 작업 중 |
