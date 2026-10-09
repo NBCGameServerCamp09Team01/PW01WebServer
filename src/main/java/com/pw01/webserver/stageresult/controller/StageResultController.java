@@ -3,9 +3,11 @@ package com.pw01.webserver.stageresult.controller;
 import com.pw01.webserver.auth.interceptor.LoginAccount;
 import com.pw01.webserver.stageresult.dto.ResultSubmitRequest;
 import com.pw01.webserver.stageresult.dto.ResultSubmitResponse;
+import com.pw01.webserver.stageresult.dto.StageResultResponse;
 import com.pw01.webserver.stageresult.service.StageResultService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,8 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 결과 제출 API. 스테이지 플레이 밑에 둔다(플레이 하나에 결과 하나). 인증 필요(WebConfig "/**").
- * 다시 받기(GET 같은 경로)는 결과 기능 담당(c)이 더한다.
+ * 결과 제출·다시 받기 API. 스테이지 플레이 밑에 둔다(플레이 하나에 결과 하나). 인증 필요(WebConfig "/**").
  */
 @RestController
 @RequestMapping("/accounts/me/stage-plays/{stagePlayId}/result")
@@ -28,6 +29,12 @@ public class StageResultController {
     public ResultSubmitResponse submit(@LoginAccount Long accountId, @PathVariable String stagePlayId,
                                        @Valid @RequestBody ResultSubmitRequest request) {
         return stageResultService.submit(accountId, stagePlayId, request);
+    }
+
+    /** 결과 다시 받기. 제출 응답의 result와 같은 모양 */
+    @GetMapping
+    public StageResultResponse get(@LoginAccount Long accountId, @PathVariable String stagePlayId) {
+        return stageResultService.get(accountId, stagePlayId);
     }
 
 }
