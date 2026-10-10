@@ -4,19 +4,26 @@ import com.pw01.webserver.common.error.CommonErrorCode;
 import com.pw01.webserver.common.error.ConflictException;
 import com.pw01.webserver.common.error.ErrorResponse.FieldErrorDetail;
 import com.pw01.webserver.common.error.InvalidRequestException;
+import com.pw01.webserver.common.error.NotFoundException;
 
 import java.util.List;
 
 /**
- * 결과 오류 코드와 예외(결과 내용 검사·저장 충돌). 플레이를 찾지 못함·만료·끝남은 StagePlayErrors가 맡는다.
+ * 결과 오류 코드와 예외(결과 내용 검사·저장 충돌·결과 없음). 플레이를 찾지 못함·만료·끝남은 StagePlayErrors가 맡는다.
  * 오류마다 HTTP 상태(예외 클래스)를 이 파일에서만 정한다(StageErrors·StagePlayErrors와 같은 결).
  */
 public final class StageResultErrors {
 
     public static final String RESULT_MISMATCH = "RESULT_MISMATCH";
     public static final String RESULT_INVALID = "RESULT_INVALID";
+    public static final String STAGE_RESULT_NOT_FOUND = "STAGE_RESULT_NOT_FOUND";
 
     private StageResultErrors() {
+    }
+
+    /** 404: 내 플레이는 있는데 결과가 아직 없음(제출 전, 포기·만료로 끝남) */
+    public static NotFoundException resultNotFound() {
+        return new NotFoundException(STAGE_RESULT_NOT_FOUND, "이 스테이지 플레이의 결과가 없습니다.");
     }
 
     /** 400: 플레이 시작 때와 스테이지·난이도가 다름 */

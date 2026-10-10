@@ -13,6 +13,7 @@ import com.pw01.webserver.stageplay.repository.StagePlayRepository;
 import com.pw01.webserver.stageplay.service.StagePlayErrors;
 import com.pw01.webserver.stageresult.dto.ResultSubmitRequest;
 import com.pw01.webserver.stageresult.dto.ResultSubmitResponse;
+import com.pw01.webserver.stageresult.dto.SaveStatus;
 import com.pw01.webserver.stageresult.dto.StageResultResponse;
 import com.pw01.webserver.stageresult.entity.StageResult;
 import com.pw01.webserver.stageresult.repository.StageResultRepository;
@@ -22,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
@@ -75,6 +77,19 @@ public class StageResultService {
         }
     }
 
+    /**
+     * 결과 다시 받기: 내 플레이 확인 → 저장된 결과. 게임이 제출 응답을 놓쳤을 때 쓴다.
+     * 남의 플레이·없는 플레이는 STAGE_PLAY_NOT_FOUND, 플레이는 있는데 결과가 아직 없으면 STAGE_RESULT_NOT_FOUND
+     */
+    @Transactional(readOnly = true)
+    public StageResultResponse get(Long accountId, String pathStagePlayId) {
+        String stagePlayId = StagePlayIds.normalize(pathStagePlayId).orElseThrow(StagePlayErrors::badId);
+        stagePlayRepository.findByIdAndAccountId(stagePlayId, accountId).orElseThrow(StagePlayErrors::notFound);
+        return stageResultRepository.findById(stagePlayId)
+                .map(StageResultResponse::from)
+                .orElseThrow(StageResultErrors::resultNotFound);
+    }
+
     private ResultSubmitResponse submitOnce(Long accountId, String stagePlayId, String requestId,
                                             ResultSubmitRequest request) {
         // 1. 내 플레이인가(남의 플레이도 없는 것과 같음)
@@ -86,7 +101,7 @@ public class StageResultService {
         if (existing.isPresent()) {
             log.info("이미 저장된 결과를 돌려줌 stagePlayId={} requestId={} firstRequestId={}", stagePlayId, requestId,
                     existing.get().getRequestId());
-            return new ResultSubmitResponse(StageResultResponse.from(existing.get()),
+            return new ResultSubmitResponse(StageResultResponse.from(existing.get()), SaveStatus.ALREADY_SAVED,
                     accountService.getSnapshot(accountId));
         }
 
@@ -112,7 +127,7 @@ public class StageResultService {
                 play.getStageId(), cleared, reward.gain().expGained(), reward.gain().levelBefore(),
                 reward.gain().levelAfter(), firstClear);
 
-        return new ResultSubmitResponse(StageResultResponse.from(result), reward.account());
+        return new ResultSubmitResponse(StageResultResponse.from(result), SaveStatus.SAVED, reward.account());
     }
 
     /** 걸리면 저장하지 않고 거절(retryable false). 플레이 상태를 보상 계산 전에 먼저 본다 */
