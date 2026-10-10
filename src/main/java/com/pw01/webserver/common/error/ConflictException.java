@@ -9,4 +9,9 @@ public class ConflictException extends ApiException {
         super(HttpStatus.CONFLICT, code, message);
     }
 
+    /** 다시 보내면 될 수 있는 충돌(VERSION_CONFLICT·REQUEST_IN_PROGRESS)은 retryable을 true로 */
+    public ConflictException(String code, String message, boolean retryable) {
+        super(HttpStatus.CONFLICT, code, message, retryable, null);
+    }
+
 }

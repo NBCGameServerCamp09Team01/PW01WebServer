@@ -72,13 +72,24 @@ class AuthInterceptorTest {
                 .andExpect(jsonPath("$").value("2026-10-07T10:10:00Z"));
     }
 
-    // 확인: 가입·로그인 같은 등록하지 않은 경로에는 인터셉터가 걸리지 않는다
+    // 확인: 공개 경로(PublicPaths, 예: 가입)에는 인터셉터가 걸리지 않는다. 실패하면 WebConfig의 excludePathPatterns를 본다
     @Test
-    void 등록하지_않은_경로는_인증하지_않는다() throws Exception {
-        mockMvc.perform(post("/auth/login-test"))
+    void 공개_경로는_인증하지_않는다() throws Exception {
+        mockMvc.perform(post("/auth/signup"))
                 .andExpect(status().isOk());
 
         verify(authService, never()).authenticate(any());
+    }
+
+    // 확인: 공개 목록에 없는 경로는 모두 인증을 거친다("/**", SF-2). 새 인증 API가 WebConfig를 고치지 않아도 막힌다
+    @Test
+    void 목록에_없는_경로는_모두_인증() throws Exception {
+        when(authService.authenticate(any())).thenThrow(
+                new UnauthorizedException("AUTH_TOKEN_MISSING", "로그인이 필요합니다."));
+
+        mockMvc.perform(post("/new-feature"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTH_TOKEN_MISSING"));
     }
 
     /** 테스트 전용 컨트롤러. 인증 경로(/accounts/**, /auth/heartbeat)와 인증 없는 경로를 하나씩 둔다 */
@@ -95,8 +106,12 @@ class AuthInterceptorTest {
             return session.expiresAt().toString();
         }
 
-        @PostMapping("/auth/login-test")
+        @PostMapping("/auth/signup")
         void open() {
+        }
+
+        @PostMapping("/new-feature")
+        void secured() {
         }
 
     }

@@ -26,6 +26,12 @@ public record ErrorResponse(String code, String message, String path, boolean re
         return new ErrorResponse(code, message, path, status.is5xxServerError(), null, null);
     }
 
+    /** 상태별 예외가 정한 retryable·errors를 그대로 싣는다(GlobalExceptionHandler의 ApiException 처리) */
+    public static ErrorResponse of(String code, String message, String path, boolean retryable,
+                                   List<FieldErrorDetail> errors) {
+        return new ErrorResponse(code, message, path, retryable, errors, null);
+    }
+
     public static ErrorResponse ofValidation(String path, List<FieldErrorDetail> errors) {
         return new ErrorResponse(CommonErrorCode.VALIDATION_FAILED, "요청 값이 올바르지 않습니다.", path, false, errors, null);
     }

@@ -26,8 +26,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class StageProgressSchemaTest {
 
     private static final Instant CLEARED_AT = Instant.parse("2026-10-08T03:00:00.123Z");
-    private static final String RUN_1 = "3f2b8c1e-7a4d-4e2f-9b10-6c5d4e3f2a1b";
-    private static final String RUN_2 = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
+    private static final String PLAY_1 = "3f2b8c1e-7a4d-4e2f-9b10-6c5d4e3f2a1b";
+    private static final String PLAY_2 = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 
     @Autowired
     JdbcTemplate jdbc;
@@ -48,7 +48,7 @@ class StageProgressSchemaTest {
         assertThat(rows).hasSize(1);
         assertThat(rows.getFirst().getStageId()).isEqualTo("stage.01.01");
         assertThat(rows.getFirst().getFirstClearedAt()).isEqualTo(CLEARED_AT);
-        assertThat(rows.getFirst().getFirstClearRunId()).isEqualTo(RUN_1);
+        assertThat(rows.getFirst().getFirstClearStagePlayId()).isEqualTo(PLAY_1);
         assertThat(repository.existsByAccountIdAndStageId(accountId, "stage.01.01")).isTrue();
         assertThat(repository.existsByAccountIdAndStageId(accountId, "stage.01.02")).isFalse();
     }
@@ -98,39 +98,39 @@ class StageProgressSchemaTest {
                 .hasMessageContaining("ck_account_stage_progress_stage_id");
     }
 
-    // 확인: 판 번호 CHECK — S2 판 번호와 같은 소문자·하이픈 36자 UUID만(대문자, UE FGuid 기본 모양 32자는 거절)
+    // 확인: 플레이 ID CHECK — 스테이지 플레이 ID와 같은 소문자·하이픈 36자 UUID만(대문자, UE FGuid 기본 모양 32자는 거절)
     @Test
     void 판_번호_모양이_틀리면_거절() {
         long accountId = insertAccount("StageSc07", "스테이지스키마07");
 
-        assertThatThrownBy(() -> insertRow(accountId, "stage.01.01", RUN_1.toUpperCase()))
+        assertThatThrownBy(() -> insertRow(accountId, "stage.01.01", PLAY_1.toUpperCase()))
                 .isInstanceOf(DataAccessException.class)
                 .hasMessageContaining("ck_account_stage_progress_run_id");
         assertThatThrownBy(() -> insertRow(accountId, "stage.01.02", "3F2B8C1E7A4D4E2F9B106C5D4E3F2A1B"))
                 .isInstanceOf(DataAccessException.class);
     }
 
-    // 확인: insertIfAbsent는 두 번 불러도 예외 없이 한 행, 시각·판 번호는 첫 값 그대로
+    // 확인: insertIfAbsent는 두 번 불러도 예외 없이 한 행, 시각·플레이 ID는 첫 값 그대로
     @Test
     void 넣기_쿼리는_두_번째를_무시() {
         long accountId = insertAccount("StageSc06", "스테이지스키마06");
 
-        tx.executeWithoutResult(status -> repository.insertIfAbsent(accountId, "stage.01.01", CLEARED_AT, RUN_1));
+        tx.executeWithoutResult(status -> repository.insertIfAbsent(accountId, "stage.01.01", CLEARED_AT, PLAY_1));
         assertThatCode(() -> tx.executeWithoutResult(status -> repository.insertIfAbsent(
-                accountId, "stage.01.01", CLEARED_AT.plusSeconds(60), RUN_2)))
+                accountId, "stage.01.01", CLEARED_AT.plusSeconds(60), PLAY_2)))
                 .doesNotThrowAnyException();
 
         List<AccountStageProgress> rows = repository.findAllByAccountId(accountId);
         assertThat(rows).hasSize(1);
         assertThat(rows.getFirst().getFirstClearedAt()).isEqualTo(CLEARED_AT);
-        assertThat(rows.getFirst().getFirstClearRunId()).isEqualTo(RUN_1);
+        assertThat(rows.getFirst().getFirstClearStagePlayId()).isEqualTo(PLAY_1);
     }
 
     // 확인: insertIfAbsent도 외래 키 위반은 그대로 예외(INSERT IGNORE처럼 숨기지 않음)
     @Test
     void 넣기_쿼리도_없는_계정은_거절() {
         assertThatThrownBy(() -> tx.executeWithoutResult(status -> repository.insertIfAbsent(
-                999_999_998L, "stage.01.01", CLEARED_AT, RUN_1)))
+                999_999_998L, "stage.01.01", CLEARED_AT, PLAY_1)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -142,14 +142,14 @@ class StageProgressSchemaTest {
     }
 
     private void insertRow(long accountId, String stageId) {
-        insertRow(accountId, stageId, RUN_1);
+        insertRow(accountId, stageId, PLAY_1);
     }
 
-    private void insertRow(long accountId, String stageId, String runId) {
+    private void insertRow(long accountId, String stageId, String stagePlayId) {
         jdbc.update("""
                 INSERT INTO account_stage_progress
                     (account_id, stage_id, first_cleared_at, first_clear_run_id, created_at, updated_at)
-                VALUES (?, ?, '2026-10-08 03:00:00.123', ?, NOW(3), NOW(3))""", accountId, stageId, runId);
+                VALUES (?, ?, '2026-10-08 03:00:00.123', ?, NOW(3), NOW(3))""", accountId, stageId, stagePlayId);
     }
 
 }

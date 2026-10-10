@@ -29,9 +29,9 @@ public interface AccountStageProgressRepository extends JpaRepository<AccountSta
     @Query(value = """
             INSERT INTO account_stage_progress
                 (account_id, stage_id, first_cleared_at, first_clear_run_id, created_at, updated_at)
-            VALUES (:accountId, :stageId, :clearedAt, :runId, :clearedAt, :clearedAt)
+            VALUES (:accountId, :stageId, :clearedAt, :stagePlayId, :clearedAt, :clearedAt)
             ON DUPLICATE KEY UPDATE account_id = account_id""", nativeQuery = true)
     int insertIfAbsent(@Param("accountId") Long accountId, @Param("stageId") String stageId,
-                       @Param("clearedAt") Instant clearedAt, @Param("runId") String runId);
+                       @Param("clearedAt") Instant clearedAt, @Param("stagePlayId") String stagePlayId);
 
 }

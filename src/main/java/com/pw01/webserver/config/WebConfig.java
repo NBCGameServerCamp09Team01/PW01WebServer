@@ -11,9 +11,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import java.util.List;
 
 /**
- * 인증 인터셉터와 @LoginAccount 등록.
- * 인증이 필요한 경로는 하나씩 적는다(공통 앞부분이 없음). 가입·로그인은 인증 없이 부른다.
- * 새 인증 API를 만들면 여기에 경로를 더한다. 빠뜨리면 그 API에서 @LoginAccount가 500을 낸다.
+ * 인증 인터셉터와 @LoginAccount 등록(뼈대 SF-2).
+ * 모든 경로("/**")가 인증을 거치고, 공개 경로(PublicPaths)만 뺀다. 새 인증 API는 여기를 고치지 않아도 된다.
+ * 새 공개 API만 PublicPaths에 더한다.
  */
 @Configuration
 @RequiredArgsConstructor
@@ -24,7 +24,8 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
-                .addPathPatterns("/accounts/**", "/auth/heartbeat", "/auth/logout");
+                .addPathPatterns("/**")
+                .excludePathPatterns(PublicPaths.ALL);
     }
 
     @Override

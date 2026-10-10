@@ -51,7 +51,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             logRejected(request.getMethod(), request.getRequestURI(), e.getStatus().value(), e.getCode());
         }
         return ResponseEntity.status(e.getStatus())
-                .body(ErrorResponse.of(e.getCode(), e.getMessage(), request.getRequestURI(), e.getStatus()));
+                .body(ErrorResponse.of(e.getCode(), e.getMessage(), request.getRequestURI(), e.isRetryable(),
+                        e.getErrors()));
     }
 
     /**

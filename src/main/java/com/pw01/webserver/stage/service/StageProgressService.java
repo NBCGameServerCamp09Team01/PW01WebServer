@@ -60,8 +60,8 @@ public class StageProgressService {
     }
 
     /**
-     * S2 판 시작 검사 한 줄. 판 번호를 발급하기 전에 부른다. 통과하면 정의를 돌려준다.
-     * 판 행에는 그 stageId와 waveCount를 저장한다(결과 검사는 판에 저장한 waveCount로, StageWaveRule).
+     * 스테이지 플레이 시작 검사 한 줄(StagePlayService). 플레이 ID를 발급하기 전에 부른다. 통과하면 정의를 돌려준다.
+     * 플레이 행에는 그 stageId와 waveCount를 저장한다(결과 검사는 플레이에 저장한 waveCount로, StageWaveRule).
      * 없는 키 → STAGE_NOT_FOUND, 잠김 → STAGE_LOCKED(HTTP 상태는 StageErrors).
      */
     public StageDef requireStartable(Long accountId, String stageId) {
@@ -75,15 +75,15 @@ public class StageProgressService {
     /**
      * S2 결과 트랜잭션 안에서, 결과 검사를 통과한 뒤 보상과 같은 곳에서 부른다(앞뒤 어디서 엔티티를 고쳐도 저장된다).
      * 트랜잭션 없이 부르면 예외(MANDATORY): 결과와 진행이 따로 커밋되어 어긋나는 일을 막는다.
-     * stageId·runId는 요청 본문이 아니라 판 행에 저장된 값을 넘긴다. 같은 판 재전송으로 첫 응답을 돌려주는 길에서는 부르지 않는다.
-     * 실패한 판(cleared false)은 아무것도 하지 않는다. 이미 클리어했으면 행을 그대로 둔다.
+     * stageId·stagePlayId는 요청 본문이 아니라 플레이 행에 저장된 값을 넘긴다. 같은 플레이 재전송으로 첫 응답을 돌려주는 길에서는 부르지 않는다.
+     * 실패한 플레이(cleared false)는 아무것도 하지 않는다. 이미 클리어했으면 행을 그대로 둔다.
      * 같은 계정의 처음 클리어 둘이 동시에 오면 행은 하나지만 둘 다 true를 돌려줄 수 있다(반환값은 표시·로그용).
      *
-     * @param runId 판 번호(UUID 소문자·하이픈 36자, 판 행 값 그대로)
+     * @param stagePlayId 스테이지 플레이 ID(UUID 소문자·하이픈 36자, 플레이 행 값 그대로)
      * @return 이번에 처음 클리어했으면 true
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public boolean recordResult(Long accountId, String stageId, boolean cleared, String runId) {
+    public boolean recordResult(Long accountId, String stageId, boolean cleared, String stagePlayId) {
         if (!cleared) {
             return false;
         }
@@ -92,7 +92,7 @@ public class StageProgressService {
             return false;
         }
         progressRepository.insertIfAbsent(accountId, stage.stageId(),
-                Instant.now().truncatedTo(ChronoUnit.MILLIS), runId);
+                Instant.now().truncatedTo(ChronoUnit.MILLIS), stagePlayId);
         return true;
     }
 
