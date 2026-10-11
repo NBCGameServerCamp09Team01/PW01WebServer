@@ -297,7 +297,7 @@ Gradle 9는 테스트 소스가 있는데 테스트가 하나도 발견되지 �
 | `mysql-connector-j` (runtimeOnly) | MySQL JDBC 드라이버 9.7 | `jdbc:mysql://…` 주소로 MySQL에 접속한다 | DataSource |
 | `spring-boot-starter-data-redis` | Spring Data Redis, Lettuce | `RedisTemplate`·`StringRedisTemplate`으로 Redis 명령을 보낸다. Redis 저장소 기능(`@RedisHash`)은 꺼 두었다. 실제 사용은 중복 방지 키·세션(S1·S5)부터 | `InfraConnectionTest` |
 | `spring-boot-starter-actuator` | Actuator | `/actuator/health`로 앱과 DB·Redis 연결 상태를 알려 준다. 웹에는 health만 연다 | 로컬 확인, 스모크 테스트, 배포 상태 확인 |
-| `spring-boot-starter-websocket` | Spring WebSocket | 지금은 의존성만 있다. 서버 알림(S7) 때 설정·핸들러를 만든다 | — |
+| `spring-boot-starter-websocket` | Spring WebSocket | 실시간 연결(S7). `realtime` 패키지, `config/RealtimeConfig`(경로 `/realtime`), 명세는 루트 `docs/contracts/realtime-api.md` | — |
 | `springdoc-openapi-starter-webmvc-ui` 3.1.1 | OpenAPI 문서 생성기, Swagger UI | 코드에서 API 문서를 만들어 `/swagger-ui/index.html`에서 보여 주고 직접 호출해 볼 수 있다. **확인용 보기**이고 명세 원본은 루트 `docs/contracts/`다. 3.1.x가 Boot 4.1 대응판이다 | 로컬 확인 |
 | `lombok` (compileOnly + annotationProcessor) | Lombok | 컴파일할 때 getter·생성자를 만들어 준다(`@Getter`, `@NoArgsConstructor`, `@RequiredArgsConstructor`) | 엔티티, 서비스, 예외 |
 | `spring-boot-devtools` (developmentOnly) | DevTools | 로컬 실행 중 클래스가 바뀌면 앱을 자동으로 다시 띄운다(로그의 `restartedMain`) | 로컬 실행 |

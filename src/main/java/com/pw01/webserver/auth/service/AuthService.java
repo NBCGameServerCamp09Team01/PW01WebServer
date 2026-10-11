@@ -10,6 +10,8 @@ import com.pw01.webserver.auth.dto.LoginRequest;
 import com.pw01.webserver.auth.dto.LoginResponse;
 import com.pw01.webserver.auth.dto.SignupRequest;
 import com.pw01.webserver.auth.dto.SignupResponse;
+import com.pw01.webserver.auth.event.SessionEndedEvent;
+import com.pw01.webserver.auth.event.SessionIssuedEvent;
 import com.pw01.webserver.auth.repository.IssuedSession;
 import com.pw01.webserver.auth.repository.LoginFailResult;
 import com.pw01.webserver.auth.repository.LoginFailStore;
@@ -18,6 +20,7 @@ import com.pw01.webserver.auth.repository.SessionStore;
 import com.pw01.webserver.common.error.ForbiddenException;
 import com.pw01.webserver.common.error.TooManyRequestsException;
 import com.pw01.webserver.common.error.UnauthorizedException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -53,15 +56,19 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final SessionStore sessionStore;
     private final LoginFailStore loginFailStore;
+    /** 세션이 생기고 끝날 때 알린다(S7 실시간 연결이 받음). 받는 쪽은 예외를 던지지 않으므로 로그인·로그아웃 결과는 바뀌지 않는다 */
+    private final ApplicationEventPublisher eventPublisher;
     /** 없는 아이디일 때도 해시 비교를 한 번 해서 응답 시간으로 아이디가 있는지 짐작하기 어렵게 한다 */
     private final String dummyHash;
 
     public AuthService(AccountService accountService, PasswordEncoder passwordEncoder,
-                       SessionStore sessionStore, LoginFailStore loginFailStore) {
+                       SessionStore sessionStore, LoginFailStore loginFailStore,
+                       ApplicationEventPublisher eventPublisher) {
         this.accountService = accountService;
         this.passwordEncoder = passwordEncoder;
         this.sessionStore = sessionStore;
         this.loginFailStore = loginFailStore;
+        this.eventPublisher = eventPublisher;
         this.dummyHash = passwordEncoder.encode("dummy-password-for-timing");
     }
 
@@ -104,6 +111,8 @@ public class AuthService {
         AccountSnapshotResponse snapshot = accountService.getSnapshot(candidate.accountId());
         loginFailStore.clear(loginId);
         IssuedSession session = sessionStore.create(candidate.accountId());
+        // 이 계정의 이전 세션에 붙은 실시간 연결에 "다른 곳 로그인"을 바로 알리게 한다(realtime-api.md)
+        eventPublisher.publishEvent(new SessionIssuedEvent(candidate.accountId()));
         return LoginResponse.of(session, snapshot);
     }
 
@@ -117,8 +126,17 @@ public class AuthService {
         if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
             throw new UnauthorizedException(TOKEN_MISSING, "로그인이 필요합니다.");
         }
-        String token = authorizationHeader.substring(BEARER_PREFIX.length());
-        if (!TOKEN_FORMAT.matcher(token).matches()) {
+        return extendSession(authorizationHeader.substring(BEARER_PREFIX.length()));
+    }
+
+    /**
+     * 헤더 없이 토큰만으로 확인·연장한다(authenticate의 ②~④). 실시간 연결의 Pong마다 부른다(realtime-api.md "Heartbeat").
+     * 실패 코드는 authenticate와 같다(AUTH_TOKEN_INVALID, AUTH_SESSION_NOT_FOUND, AUTH_SESSION_REPLACED).
+     *
+     * @param token 토큰 원문
+     */
+    public AuthenticatedSession extendSession(String token) {
+        if (token == null || !TOKEN_FORMAT.matcher(token).matches()) {
             throw new UnauthorizedException(TOKEN_INVALID, "인증 정보가 올바르지 않습니다.");
         }
 
@@ -136,6 +154,13 @@ public class AuthService {
      */
     public void logout(AuthenticatedSession session) {
         sessionStore.delete(session.token(), session.accountId());
+        // 이 세션의 실시간 연결을 닫게 한다(realtime-api.md 종료 코드 1000)
+        eventPublisher.publishEvent(new SessionEndedEvent(session.accountId(), session.token()));
+    }
+
+    /** 실시간 연결이 연장 실패를 종료 코드로 바꿀 때 비교한다 */
+    public static boolean isSessionReplaced(UnauthorizedException e) {
+        return SESSION_REPLACED.equals(e.getCode());
     }
 
     private boolean passwordMatches(String rawPassword, String hash) {
