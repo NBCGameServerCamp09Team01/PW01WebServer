@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * 랭킹 표(V7) 쓰기. 결과 트랜잭션 안에서만 불린다(RankingRecordService, MANDATORY).
+ * 랭킹 표(V8) 쓰기. 결과 트랜잭션 안에서만 불린다(RankingRecordService, MANDATORY).
  * JPA 엔티티 없이 SQL로 쓴다: 결과 저장 쪽 영속성 컨텍스트(계정·플레이·결과 엔티티)를 건드리지 않고,
  * "점수가 오를 때만 덮어씀"을 한 문장(INSERT … ON DUPLICATE KEY UPDATE)으로 해서 동시 저장에도 어긋나지 않게 한다.
  * JdbcClient는 트랜잭션에 묶인 같은 커넥션을 쓴다(JpaTransactionManager가 JDBC 커넥션을 내준다).
