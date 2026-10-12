@@ -19,5 +19,5 @@
 | V3 | `V3__drop_example.sql` | S1 정리: 학습용 예시 표 삭제 | Robbie | #8 | 병합됨 |
 | V4 | `V4__create_account_stage_progress.sql` | 스테이지 진행(클리어) | Sang-Hyun-Kim | #9 | 병합됨 |
 | V5 | `V5__create_stage_play_result.sql` | S2 스테이지 플레이·결과 요약·변경 내역·누적 통계 | Robbie·Sang-Hyun-Kim | #11 | 작업 중 |
-| V6 | `V6__create_account_stat.sql` | S3 스탯 투자(계정별 스탯 포인트) | Robbie | — | 작업 중 |
-| V7 | `V7__create_ranking_tables.sql` | M7 랭킹(클리어 기록·스테이지 최고·지역 점수·전체 총합·진행) | Sang-Hyun-Kim | — | 작업 중(PR 직전 번호 확인) |
+| V6 | `V6__create_account_stat.sql` | S3 스탯 투자(계정별 스탯 포인트) | Robbie | #14 | 병합됨 |
+| V7 | `V7__create_account_skill.sql` | S4 스킬 해금(계정별 해금 스킬), 누적 통계 키 3개 처음 값 | Robbie | — | 작업 중 |

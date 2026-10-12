@@ -52,7 +52,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
         return ResponseEntity.status(e.getStatus())
                 .body(ErrorResponse.of(e.getCode(), e.getMessage(), request.getRequestURI(), e.isRetryable(),
-                        e.getErrors()));
+                        e.getErrors(), e.getExtra()));
     }
 
     /**
