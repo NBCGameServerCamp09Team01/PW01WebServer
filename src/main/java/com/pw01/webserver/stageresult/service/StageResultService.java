@@ -18,6 +18,7 @@ import com.pw01.webserver.stageresult.dto.SaveStatus;
 import com.pw01.webserver.stageresult.dto.StageResultResponse;
 import com.pw01.webserver.stageresult.entity.StageResult;
 import com.pw01.webserver.stageresult.repository.StageResultRepository;
+import com.pw01.webserver.stageresult.repository.StageResultTotalsQuery;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,8 +30,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -47,6 +50,7 @@ public class StageResultService {
 
     private final StagePlayRepository stagePlayRepository;
     private final StageResultRepository stageResultRepository;
+    private final StageResultTotalsQuery stageResultTotalsQuery;
     private final AccountService accountService;
     private final StageProgressService stageProgressService;
     private final StagePlayProperties stagePlayProperties;
@@ -63,6 +67,11 @@ public class StageResultService {
         return progressWriter.run("stage-result stagePlayId=" + stagePlayId,
                 () -> submitOnce(accountId, stagePlayId, requestId, request),
                 e -> resultSaved(stagePlayId));
+    }
+
+    /** 계정별 결과를 모은 값(누적 통계 대조의 원천). 결과가 없는 계정은 빠진다. 부른 쪽 트랜잭션에서 읽는다 */
+    public Map<Long, ResultTotals> totalsByAccount(Collection<Long> accountIds) {
+        return stageResultTotalsQuery.byAccount(accountIds);
     }
 
     /**
@@ -98,11 +107,11 @@ public class StageResultService {
 
         // 3. 보상(경험치·레벨·스탯 포인트) → 변경 내역·누적 통계까지 AccountService가 같은 트랜잭션에서
         boolean cleared = request.cleared();
+        long playTimeMs = Math.round(request.playTimeSeconds() * 1000);
         StageRewardResult reward = accountService.grantStageReward(accountId, play.getId(), requestId, cleared,
-                request.killCount(), request.earnedGold());
+                request.killCount(), request.earnedGold(), request.reachedWave(), playTimeMs);
 
         // 4. 결과 한 줄(기본 키 = 플레이 ID). 바로 flush해서 같은 플레이의 동시 저장을 여기서 드러낸다
-        long playTimeMs = Math.round(request.playTimeSeconds() * 1000);
         StageResult result = stageResultRepository.saveAndFlush(StageResult.of(play, requestId, cleared,
                 request.reachedWave(), request.totalWaveCount(), playTimeMs, request.earnedGold(),
                 request.killCount(), reward.gain()));

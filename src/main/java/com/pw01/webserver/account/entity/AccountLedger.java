@@ -34,6 +34,10 @@ public class AccountLedger extends BaseEntity {
     public static final String SOURCE_STAGE_PLAY = "STAGE_PLAY";
     /** 출처: 스탯 투자 요청. source_id = "requestId:스탯태그"(한 요청이 스탯마다 한 줄) */
     public static final String SOURCE_STAT_INVEST = "STAT_INVEST";
+    /** 스킬 해금(포인트를 씀) */
+    public static final String KIND_SKILL_UNLOCK = "SKILL_UNLOCK";
+    /** 출처: 스킬 해금 요청. source_id = "requestId:스킬태그"(투자와 같은 모양) */
+    public static final String SOURCE_SKILL_UNLOCK = "SKILL_UNLOCK";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -91,6 +95,20 @@ public class AccountLedger extends BaseEntity {
         ledger.pointDelta = -points;
         ledger.sourceType = SOURCE_STAT_INVEST;
         ledger.sourceId = requestId + ":" + statKey;
+        ledger.requestId = requestId;
+        return ledger;
+    }
+
+    /** 스킬 해금 한 줄(포인트 −cost). source_id는 "requestId:스킬태그"(스킬 태그 27자 이하, SkillCatalog 기동 검사) */
+    public static AccountLedger skillUnlock(Long accountId, String requestId, String skillTag, int cost) {
+        AccountLedger ledger = new AccountLedger();
+        ledger.accountId = accountId;
+        ledger.kind = KIND_SKILL_UNLOCK;
+        ledger.target = skillTag;
+        ledger.expDelta = 0;
+        ledger.pointDelta = -cost;
+        ledger.sourceType = SOURCE_SKILL_UNLOCK;
+        ledger.sourceId = requestId + ":" + skillTag;
         ledger.requestId = requestId;
         return ledger;
     }
