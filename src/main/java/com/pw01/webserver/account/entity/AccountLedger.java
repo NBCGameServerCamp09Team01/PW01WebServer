@@ -26,8 +26,14 @@ public class AccountLedger extends BaseEntity {
 
     /** 결과 보상 */
     public static final String KIND_STAGE_REWARD = "STAGE_REWARD";
+    /** 스탯 올림(포인트를 씀) */
+    public static final String KIND_STAT_INVEST = "STAT_INVEST";
+    /** 스탯 내림(포인트를 돌려받음) */
+    public static final String KIND_STAT_REFUND = "STAT_REFUND";
     /** 출처: 스테이지 플레이 */
     public static final String SOURCE_STAGE_PLAY = "STAGE_PLAY";
+    /** 출처: 스탯 투자 요청. source_id = "requestId:스탯태그"(한 요청이 스탯마다 한 줄) */
+    public static final String SOURCE_STAT_INVEST = "STAT_INVEST";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -68,6 +74,23 @@ public class AccountLedger extends BaseEntity {
         ledger.pointDelta = pointDelta;
         ledger.sourceType = SOURCE_STAGE_PLAY;
         ledger.sourceId = stagePlayId;
+        ledger.requestId = requestId;
+        return ledger;
+    }
+
+    /**
+     * 스탯 투자 한 줄. points가 양수면 올림(포인트 −points), 음수면 내림(포인트 +|points|).
+     * source_id는 "requestId:스탯태그"라 같은 요청의 같은 스탯은 한 줄뿐이다(uk_account_ledger_source = 두 번 반영 방지의 마지막 방어)
+     */
+    public static AccountLedger statChange(Long accountId, String requestId, String statKey, int points) {
+        AccountLedger ledger = new AccountLedger();
+        ledger.accountId = accountId;
+        ledger.kind = points > 0 ? KIND_STAT_INVEST : KIND_STAT_REFUND;
+        ledger.target = statKey;
+        ledger.expDelta = 0;
+        ledger.pointDelta = -points;
+        ledger.sourceType = SOURCE_STAT_INVEST;
+        ledger.sourceId = requestId + ":" + statKey;
         ledger.requestId = requestId;
         return ledger;
     }

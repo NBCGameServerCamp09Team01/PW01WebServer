@@ -10,19 +10,15 @@ import java.time.Duration;
  * @param validity      스테이지 플레이 유효 시간(시작 → 결과 마감)
  * @param playTimeMax   결과의 플레이 시간 상한
  * @param playTimeSlack 서버가 잰 경과 시간에 더해 주는 여유(게임 시계·전송 지연)
- * @param saveAttempts  낙관적 락 충돌 때 결과 저장을 다시 하는 총 횟수(1 이상)
  */
 @ConfigurationProperties("pw01.stage-play")
-public record StagePlayProperties(Duration validity, Duration playTimeMax, Duration playTimeSlack, int saveAttempts) {
+public record StagePlayProperties(Duration validity, Duration playTimeMax, Duration playTimeSlack) {
 
     public StagePlayProperties {
         requirePositive("pw01.stage-play.validity", validity);
         requirePositive("pw01.stage-play.play-time-max", playTimeMax);
         if (playTimeSlack == null || playTimeSlack.isNegative()) {
             throw new IllegalArgumentException("pw01.stage-play.play-time-slack는 0 이상이어야 합니다: " + playTimeSlack);
-        }
-        if (saveAttempts < 1) {
-            throw new IllegalArgumentException("pw01.stage-play.save-attempts는 1 이상이어야 합니다: " + saveAttempts);
         }
     }
 

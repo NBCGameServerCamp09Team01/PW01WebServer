@@ -5,21 +5,28 @@ import com.pw01.webserver.account.dto.LoginCandidate;
 import com.pw01.webserver.account.entity.Account;
 import com.pw01.webserver.account.entity.AccountLedger;
 import com.pw01.webserver.account.entity.AccountProgress;
+import com.pw01.webserver.account.entity.AccountStat;
 import com.pw01.webserver.account.repository.AccountLedgerRepository;
 import com.pw01.webserver.account.repository.AccountProgressRepository;
 import com.pw01.webserver.account.repository.AccountRepository;
+import com.pw01.webserver.account.repository.AccountStatRepository;
 import com.pw01.webserver.account.repository.AccountStatTotalRepository;
 import com.pw01.webserver.common.error.ConflictException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -41,7 +48,9 @@ public class AccountService {
     private final AccountProgressRepository accountProgressRepository;
     private final AccountLedgerRepository accountLedgerRepository;
     private final AccountStatTotalRepository accountStatTotalRepository;
+    private final AccountStatRepository accountStatRepository;
     private final LevelCurve levelCurve;
+    private final EntityManager entityManager;
 
     @Transactional
     public Account register(String loginId, String passwordHash, String nickname, String email){
@@ -75,11 +84,68 @@ public class AccountService {
                 .collect(Collectors.toMap(Account::getId, Account::getNickname));
     }
 
-    /** 메인화면 값. 계정은 있는데 진행 행이 없으면 데이터 버그라 500으로 둔다 */
+    /**
+     * 메인화면 값(계정 스냅샷)의 한 입구. 로그인·A3·결과·투자 응답이 모두 여기서 만든 값을 쓴다.
+     * 나중에 계정 스냅샷 조립기(SF-8)를 만들면 이 메서드 안쪽(snapshot)만 바꾼다.
+     * 계정은 있는데 진행 행이 없으면 데이터 버그라 500으로 둔다.
+     */
     public AccountSnapshotResponse getSnapshot(Long accountId) {
         return accountProgressRepository.findById(accountId)
-                .map(AccountSnapshotResponse::from)
+                .map(this::snapshot)
                 .orElseThrow(() -> new IllegalStateException("account_progress가 없습니다. accountId=" + accountId));
+    }
+
+    /**
+     * 스탯 투자(S3): 묶음 전체를 판정하고, 되면 포인트·스탯·변경 내역을 저장한다. 하나라도 걸리면 아무것도 저장하지 않는다.
+     * 트랜잭션은 부른 쪽(ProgressWriter)이 연다(MANDATORY). 진행 행 @Version 충돌이면 부른 쪽이 새 트랜잭션으로 다시 한다.
+     * 이 requestId의 내역이 이미 있으면 ALREADY_SAVED(아무것도 바꾸지 않음). 동시에 같은 요청이 와도 내역 유일 제약이 한 번만 남긴다.
+     * 포인트가 그대로인 묶음(+1·−1 등)도 진행 행 version을 올린다(지시서 3장 "자식 표만 바뀌어도 진행 행 버전을 올린다").
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public StatChangeResult changeStats(Long accountId, String requestId, List<StatChange> changes) {
+        if (accountLedgerRepository.existsByAccountIdAndRequestId(accountId, requestId)) {
+            return StatChangeResult.of(StatChangeResult.Outcome.ALREADY_SAVED);
+        }
+        AccountProgress progress = accountProgressRepository.findById(accountId)
+                .orElseThrow(() -> new IllegalStateException("account_progress가 없습니다. accountId=" + accountId));
+        Map<String, AccountStat> current = accountStatRepository.findByIdAccountId(accountId).stream()
+                .collect(Collectors.toMap(AccountStat::getStatKey, stat -> stat));
+
+        int need = changes.stream().mapToInt(StatChange::points).sum();
+        if (need > progress.getStatPoints()) {
+            return StatChangeResult.pointsNotEnough(need, progress.getStatPoints());
+        }
+        List<StatChangeResult.Violation> overMax = new ArrayList<>();
+        List<StatChangeResult.Violation> belowZero = new ArrayList<>();
+        for (StatChange change : changes) {
+            int now = current.containsKey(change.statKey()) ? current.get(change.statKey()).getPoints() : 0;
+            int after = now + change.points();
+            if (after > change.maxPoints()) {
+                overMax.add(new StatChangeResult.Violation(change, now));
+            } else if (after < 0) {
+                belowZero.add(new StatChangeResult.Violation(change, now));
+            }
+        }
+        if (!overMax.isEmpty()) {
+            return StatChangeResult.violations(StatChangeResult.Outcome.MAX_EXCEEDED, overMax);
+        }
+        if (!belowZero.isEmpty()) {
+            return StatChangeResult.violations(StatChangeResult.Outcome.BELOW_ZERO, belowZero);
+        }
+
+        progress.changeStatPoints(-need);
+        if (need == 0) {
+            entityManager.lock(progress, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+        }
+        for (StatChange change : changes) {
+            AccountStat stat = current.computeIfAbsent(change.statKey(), key -> AccountStat.empty(accountId, key));
+            stat.add(change.points());
+            accountStatRepository.save(stat);
+            accountLedgerRepository.save(AccountLedger.statChange(accountId, requestId, change.statKey(), change.points()));
+        }
+        // 내역 유일 제약·진행 행 version 충돌을 여기서 드러낸다(부른 쪽이 다시 할지 정함)
+        accountProgressRepository.saveAndFlush(progress);
+        return StatChangeResult.of(StatChangeResult.Outcome.SAVED);
     }
 
     /**
@@ -108,7 +174,18 @@ public class AccountService {
         stats.put(STAT_STAGE_PLAY_GOLD, (long) earnedGold);
         accountStatTotalRepository.add(accountId, stats);
 
-        return new StageRewardResult(gain, AccountSnapshotResponse.from(progress));
+        return new StageRewardResult(gain, snapshot(progress));
+    }
+
+    /** 스냅샷 조립은 여기 한 곳. 투자 값은 0보다 큰 스탯만 싣는다(account-api.md v1.1) */
+    private AccountSnapshotResponse snapshot(AccountProgress progress) {
+        Map<String, Integer> invested = new TreeMap<>();
+        for (AccountStat stat : accountStatRepository.findByIdAccountId(progress.getAccountId())) {
+            if (stat.getPoints() > 0) {
+                invested.put(stat.getStatKey(), stat.getPoints());
+            }
+        }
+        return AccountSnapshotResponse.from(progress, invested);
     }
 
     private static RuntimeException toConflict(DataIntegrityViolationException e) {

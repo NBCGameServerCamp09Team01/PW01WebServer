@@ -1,6 +1,7 @@
 package com.pw01.webserver.stageresult.service;
 
 import com.pw01.webserver.account.service.AccountService;
+import com.pw01.webserver.account.service.ProgressWriter;
 import com.pw01.webserver.account.service.StageRewardResult;
 import com.pw01.webserver.common.error.ErrorResponse.FieldErrorDetail;
 import com.pw01.webserver.config.StagePlayProperties;
@@ -20,8 +21,6 @@ import com.pw01.webserver.stageresult.repository.StageResultRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -36,7 +35,7 @@ import java.util.Optional;
 
 /**
  * 결과 제출: 내 스테이지 플레이 확인 → 이미 결과가 있으면 처음 결과 → 플레이 상태·결과 검사 → 보상·결과·진행을 한 트랜잭션으로 저장.
- * 이 클래스는 트랜잭션을 직접 열고(TransactionTemplate), 낙관적 락 충돌이면 **새 트랜잭션으로** 처음부터 다시 한다
+ * 저장은 ProgressWriter(SF-6)가 새 트랜잭션으로 열고, 낙관적 락 충돌이면 **새 트랜잭션으로** 처음부터 다시 한다
  * (같은 트랜잭션 안에서 다시 하면 계속 실패한다). 정한 횟수를 넘으면 409 VERSION_CONFLICT(retryable true).
  * 같은 플레이의 결과가 동시에 둘이면 뒤 트랜잭션은 stage_play_result 기본 키 위반으로 전부 되돌아가고, 다시 할 때 처음 결과를 받는다.
  */
@@ -51,30 +50,19 @@ public class StageResultService {
     private final AccountService accountService;
     private final StageProgressService stageProgressService;
     private final StagePlayProperties stagePlayProperties;
+    private final ProgressWriter progressWriter;
     private final TransactionTemplate transactionTemplate;
 
     public ResultSubmitResponse submit(Long accountId, String pathStagePlayId, ResultSubmitRequest request) {
         String stagePlayId = StagePlayIds.normalize(pathStagePlayId).orElseThrow(StagePlayErrors::badId);
         String requestId = request.requestId().toLowerCase(Locale.ROOT);
 
-        for (int attempt = 1; ; attempt++) {
-            try {
-                return transactionTemplate.execute(status -> submitOnce(accountId, stagePlayId, requestId, request));
-            } catch (OptimisticLockingFailureException | DataIntegrityViolationException e) {
-                // 같은 계정의 다른 저장과 부딪힘(진행 행 @Version) 또는 같은 플레이 결과가 먼저 저장됨(기본 키).
-                // 둘 다 새 트랜잭션으로 다시 하면 풀린다(뒤의 경우는 2번에서 처음 결과를 받음).
-                // 그 밖의 제약 위반(CHECK 등)은 다시 해도 같으므로 그대로 던진다(500)
-                if (e instanceof DataIntegrityViolationException && !resultSaved(stagePlayId)) {
-                    throw e;
-                }
-                if (attempt >= stagePlayProperties.saveAttempts()) {
-                    log.warn("결과 저장 충돌이 계속됨 stagePlayId={} attempts={}", stagePlayId, attempt, e);
-                    throw StageResultErrors.versionConflict();
-                }
-                log.info("결과 저장 충돌, 다시 함 stagePlayId={} attempt={} cause={}", stagePlayId, attempt,
-                        e.getClass().getSimpleName());
-            }
-        }
+        // 같은 계정의 다른 저장과 부딪힘(진행 행 @Version) 또는 같은 플레이 결과가 먼저 저장됨(기본 키).
+        // 둘 다 새 트랜잭션으로 다시 하면 풀린다(뒤의 경우는 2번에서 처음 결과를 받음).
+        // 그 밖의 제약 위반(CHECK 등)은 다시 해도 같으므로 그대로 던진다(500)
+        return progressWriter.run("stage-result stagePlayId=" + stagePlayId,
+                () -> submitOnce(accountId, stagePlayId, requestId, request),
+                e -> resultSaved(stagePlayId));
     }
 
     /**
