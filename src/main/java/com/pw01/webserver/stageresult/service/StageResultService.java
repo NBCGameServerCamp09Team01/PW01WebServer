@@ -5,6 +5,8 @@ import com.pw01.webserver.account.service.ProgressWriter;
 import com.pw01.webserver.account.service.StageRewardResult;
 import com.pw01.webserver.common.error.ErrorResponse.FieldErrorDetail;
 import com.pw01.webserver.config.StagePlayProperties;
+import com.pw01.webserver.ranking.service.RankingClear;
+import com.pw01.webserver.ranking.service.RankingRecordService;
 import com.pw01.webserver.stage.service.StageProgressService;
 import com.pw01.webserver.stage.service.StageWaveRule;
 import com.pw01.webserver.stageplay.dto.StagePlayIds;
@@ -37,7 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * 결과 제출: 내 스테이지 플레이 확인 → 이미 결과가 있으면 처음 결과 → 플레이 상태·결과 검사 → 보상·결과·진행을 한 트랜잭션으로 저장.
+ * 결과 제출: 내 스테이지 플레이 확인 → 이미 결과가 있으면 처음 결과 → 플레이 상태·결과 검사 → 보상·결과·진행·랭킹을 한 트랜잭션으로 저장.
  * 저장은 ProgressWriter(SF-6)가 새 트랜잭션으로 열고, 낙관적 락 충돌이면 **새 트랜잭션으로** 처음부터 다시 한다
  * (같은 트랜잭션 안에서 다시 하면 계속 실패한다). 정한 횟수를 넘으면 409 VERSION_CONFLICT(retryable true).
  * 같은 플레이의 결과가 동시에 둘이면 뒤 트랜잭션은 stage_play_result 기본 키 위반으로 전부 되돌아가고, 다시 할 때 처음 결과를 받는다.
@@ -56,6 +58,7 @@ public class StageResultService {
     private final StagePlayProperties stagePlayProperties;
     private final ProgressWriter progressWriter;
     private final TransactionTemplate transactionTemplate;
+    private final RankingRecordService rankingRecordService;
 
     public ResultSubmitResponse submit(Long accountId, String pathStagePlayId, ResultSubmitRequest request) {
         String stagePlayId = StagePlayIds.normalize(pathStagePlayId).orElseThrow(StagePlayErrors::badId);
@@ -93,7 +96,7 @@ public class StageResultService {
         StagePlay play = stagePlayRepository.findByIdAndAccountId(stagePlayId, accountId)
                 .orElseThrow(StagePlayErrors::notFound);
 
-        // 2. 이미 결과가 있으면 처음 결과를 돌려준다(플레이 ID가 이김). 아래 검사·저장·recordResult를 지나지 않는다
+        // 2. 이미 결과가 있으면 처음 결과를 돌려준다(플레이 ID가 이김). 아래 검사·저장·recordResult·랭킹 기록을 지나지 않는다
         Optional<StageResult> existing = stageResultRepository.findById(stagePlayId);
         if (existing.isPresent()) {
             log.info("이미 저장된 결과를 돌려줌 stagePlayId={} requestId={} firstRequestId={}", stagePlayId, requestId,
@@ -120,6 +123,11 @@ public class StageResultService {
 
         // 5. 같은 트랜잭션에서 클리어 기록. 스테이지·플레이 ID는 플레이 행 값
         boolean firstClear = stageProgressService.recordResult(accountId, play.getStageId(), cleared, play.getId());
+
+        // 6. 같은 트랜잭션에서 랭킹 기록(클리어만, 실패 결과는 랭킹이 무시). 값은 요청 본문이 아니라 저장한 플레이·결과 행에서.
+        //    달성 시각 = 결과 저장 시각(created_at). Redis 보드는 커밋 뒤 랭킹이 고치고, 실패해도 이 응답에는 영향이 없다
+        rankingRecordService.recordClear(new RankingClear(accountId, play.getId(), play.getStageId(),
+                play.getDifficulty(), cleared, result.getPlayTimeMs(), result.getCreatedAt()));
         log.info("결과 저장 stagePlayId={} stage={} cleared={} exp={} level {}→{} firstClear={}", play.getId(),
                 play.getStageId(), cleared, reward.gain().expGained(), reward.gain().levelBefore(),
                 reward.gain().levelAfter(), firstClear);
