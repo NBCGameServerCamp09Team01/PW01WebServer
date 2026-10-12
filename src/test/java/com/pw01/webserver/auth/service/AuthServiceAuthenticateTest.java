@@ -9,6 +9,7 @@ import com.pw01.webserver.common.error.ApiException;
 import com.pw01.webserver.common.error.UnauthorizedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.time.Instant;
@@ -36,7 +37,7 @@ class AuthServiceAuthenticateTest {
     void setUp() {
         sessionStore = mock(SessionStore.class);
         authService = new AuthService(mock(AccountService.class), new BCryptPasswordEncoder(4),
-                sessionStore, mock(LoginFailStore.class));
+                sessionStore, mock(LoginFailStore.class), mock(ApplicationEventPublisher.class));
     }
 
     // 확인: 헤더가 없거나 Bearer가 아니면 AUTH_TOKEN_MISSING, Redis는 보지 않는다

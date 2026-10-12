@@ -6,6 +6,7 @@ import com.pw01.webserver.account.entity.AccountStatus;
 import com.pw01.webserver.account.service.AccountService;
 import com.pw01.webserver.auth.dto.LoginRequest;
 import com.pw01.webserver.auth.dto.LoginResponse;
+import com.pw01.webserver.auth.event.SessionIssuedEvent;
 import com.pw01.webserver.auth.repository.IssuedSession;
 import com.pw01.webserver.auth.repository.LoginFailResult;
 import com.pw01.webserver.auth.repository.LoginFailStore;
@@ -16,6 +17,7 @@ import com.pw01.webserver.common.error.TooManyRequestsException;
 import com.pw01.webserver.common.error.UnauthorizedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -52,6 +54,7 @@ class AuthServiceLoginTest {
     private AccountService accountService;
     private SessionStore sessionStore;
     private LoginFailStore loginFailStore;
+    private ApplicationEventPublisher eventPublisher;
     private AuthService authService;
 
     @BeforeEach
@@ -59,7 +62,8 @@ class AuthServiceLoginTest {
         accountService = mock(AccountService.class);
         sessionStore = mock(SessionStore.class);
         loginFailStore = mock(LoginFailStore.class);
-        authService = new AuthService(accountService, passwordEncoder, sessionStore, loginFailStore);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        authService = new AuthService(accountService, passwordEncoder, sessionStore, loginFailStore, eventPublisher);
     }
 
     // 확인: 형식 밖 아이디는 DB·Redis를 보지 않고 401. 실패하면 형식 검사가 잠김 확인 뒤로 밀렸는지 본다
@@ -154,6 +158,8 @@ class AuthServiceLoginTest {
         assertThat(response.tokenType()).isEqualTo("Bearer");
         assertThat(response.sessionExpiresAt()).isEqualTo(expiresAt);
         assertThat(response.account().accountLevel()).isEqualTo(1);
+        // S7: 이전 세션의 실시간 연결에 "다른 곳 로그인"을 알리도록 이벤트를 낸다
+        verify(eventPublisher).publishEvent(new SessionIssuedEvent(ACCOUNT_ID));
     }
 
     // 확인: 메인화면 값 읽기가 실패하면(진행 행 없음·DB 장애) 세션을 만들지 않고 실패 기록도 그대로 둔다.
@@ -168,6 +174,8 @@ class AuthServiceLoginTest {
 
         verify(sessionStore, never()).create(any());
         verify(loginFailStore, never()).clear(anyString());
+        // S7: 세션을 만들지 않았으면 이전 세션도 밀려나지 않으므로 알리지 않는다
+        verifyNoInteractions(eventPublisher);
     }
 
     private LoginCandidate candidate(AccountStatus status) {
