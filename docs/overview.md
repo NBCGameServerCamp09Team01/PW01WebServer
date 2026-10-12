@@ -29,6 +29,8 @@ com.pw01.webserver
 ├─ common/master   MasterDataLoader(resources/master/*.json을 기동 때 읽음, 틀리면 기동 실패. SF-7)
 ├─ config          JpaAuditingConfig
 ├─ stage/          지역·스테이지 정보(master/stages.json, ST1 GET /stages)와 계정별 클리어 진행(ST2 GET /accounts/me/stages)
+├─ ranking/        랭킹(스테이지·지역·진행, 전체·주간). 원천 MySQL 표 4개(V7) + Redis 보드 사본(pw01:rank:*, rank_*.lua).
+│                  JPA 엔티티 없이 JdbcClient. 결과 저장이 RankingRecordService.recordClear를 부른다(연동 지점). 결정 기록 decisions/0002
 └─ <기능>/          controller · service · repository · entity · dto  (지금은 account·auth)
 ```
 

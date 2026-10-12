@@ -45,7 +45,7 @@ public class StageCatalog {
         List<StageDef> defs = region.stages().stream()
                 .sorted(Comparator.comparingInt(StageEntry::order))
                 .map(stage -> new StageDef(stage.stageId(), region.regionId(), stage.name(), stage.order(),
-                        stage.requires(), stage.waveCount()))
+                        stage.requires(), stage.waveCount(), stage.recommendedClearSeconds()))
                 .toList();
         defs.forEach(def -> byId.put(def.stageId(), def));
         return new RegionDef(region.regionId(), region.name(), region.order(), defs);
@@ -58,6 +58,15 @@ public class StageCatalog {
     /** 없으면 STAGE_NOT_FOUND */
     public StageDef get(String stageId) {
         return find(stageId).orElseThrow(StageErrors::notFound);
+    }
+
+    public Optional<RegionDef> findRegion(String regionId) {
+        return regions.stream().filter(region -> region.regionId().equals(regionId)).findFirst();
+    }
+
+    /** 없으면 REGION_NOT_FOUND(랭킹 지역 순위) */
+    public RegionDef getRegion(String regionId) {
+        return findRegion(regionId).orElseThrow(StageErrors::regionNotFound);
     }
 
     /** 결과 검사의 기준 웨이브 수. 없는 키면 STAGE_NOT_FOUND */

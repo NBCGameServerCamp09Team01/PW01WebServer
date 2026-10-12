@@ -49,8 +49,8 @@ class StageControllerTest {
     @Test
     void 토큰_없이_정의() throws Exception {
         when(stageCatalog.regions()).thenReturn(List.of(new RegionDef("region.01", "지역 1", 1, List.of(
-                new StageDef("stage.01.01", "region.01", "스테이지 1", 1, null, 5),
-                new StageDef("stage.01.02", "region.01", "스테이지 2", 2, "stage.01.01", 5)))));
+                new StageDef("stage.01.01", "region.01", "스테이지 1", 1, null, 5, 300),
+                new StageDef("stage.01.02", "region.01", "스테이지 2", 2, "stage.01.01", 5, 300)))));
         when(stageCatalog.totalCount()).thenReturn(2);
 
         mockMvc.perform(get("/stages"))

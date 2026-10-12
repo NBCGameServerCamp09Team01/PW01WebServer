@@ -26,8 +26,10 @@ public record StageMasterFile(List<RegionEntry> regions) {
      * @param order     지역 안 화면 순서. 1부터
      * @param requires  이 스테이지를 클리어하면 열림. 첫 스테이지는 null
      * @param waveCount 웨이브 수. S2 결과 검사(도달 웨이브)에 쓴다
+     * @param recommendedClearSeconds 권장 클리어 시간(초, 1 이상). 랭킹 점수의 기준(ranking-api.md "점수")
      */
-    public record StageEntry(String stageId, String name, int order, String requires, int waveCount) {
+    public record StageEntry(String stageId, String name, int order, String requires, int waveCount,
+                             int recommendedClearSeconds) {
     }
 
 }

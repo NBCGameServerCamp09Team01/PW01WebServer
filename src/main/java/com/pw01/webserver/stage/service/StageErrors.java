@@ -15,7 +15,15 @@ public final class StageErrors {
     /** 아직 열리지 않은 스테이지로 판을 시작함 */
     public static final String STAGE_LOCKED = "STAGE_LOCKED";
 
+    /** 없는 regionId(랭킹 지역 순위, ranking-api.md) */
+    public static final String REGION_NOT_FOUND = "REGION_NOT_FOUND";
+
     private StageErrors() {
+    }
+
+    /** 404: 요청 모양은 맞고 그 지역 키가 없다 */
+    public static NotFoundException regionNotFound() {
+        return new NotFoundException(REGION_NOT_FOUND, "지역 정보를 찾을 수 없습니다.");
     }
 
     /** 404: 요청 모양은 맞고 그 키가 없다 */

@@ -56,6 +56,7 @@ class StageApiTest {
                 .andExpect(jsonPath("$.data.regions[0].stages[0].name").value("스테이지 1"))
                 .andExpect(jsonPath("$.data.regions[0].stages[0].order").value(1))
                 .andExpect(jsonPath("$.data.regions[0].stages[0].waveCount").value(5))
+                .andExpect(jsonPath("$.data.regions[0].stages[0].recommendedClearSeconds").value(300))
                 .andExpect(jsonPath("$.data.regions[0].stages[1].stageId").value("stage.01.02"))
                 .andExpect(jsonPath("$.data.regions[0].stages[1].requires").value("stage.01.01"))
                 .andExpect(jsonPath("$.data.regions[0].stages[0].status").doesNotExist())
