@@ -41,9 +41,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 랭킹을 앱 전체 + 실제 MySQL·Redis로 확인한다(루트 docs/contracts/ranking-api.md v1, redis-keys.md v1.3 랭킹 절).
- * 랭킹 단독 시험: 결과 API를 거치지 않고 RankingRecordService.recordClear를 트랜잭션 안에서 바로 부른다(연동은 따로).
+ * 랭킹 단독 시험: 결과 API를 거치지 않고 RankingRecordService.recordClear를 트랜잭션 안에서 바로 부른다(결과 API를 거치는 연동은 RankingResultLinkTest).
  * 필수 시험: 서버 판정(점수·덮어쓰기·순서), 예외(상태·코드). Redis·MySQL 두 길이 같은 답을 내는지도 본다.
- * 실패하면 V7 마이그레이션·RankingRecordRepository(덮어쓰기 SQL)·RankingBoardQuery(순서·커서 조건)·rank_*.lua를 의심한다.
+ * 실패하면 V8 마이그레이션·RankingRecordRepository(덮어쓰기 SQL)·RankingBoardQuery(순서·커서 조건)·rank_*.lua를 의심한다.
  */
 @IntegrationTest
 class RankingApiTest {

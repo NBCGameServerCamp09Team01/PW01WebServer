@@ -33,7 +33,7 @@ import java.util.Optional;
  *   <li>이 스테이지를 처음 클리어했으면 진행(클리어한 스테이지 수·가장 먼 스테이지)을 다시 계산해 덮어씀</li>
  *   <li>커밋 뒤 Redis에 옮길 값을 이벤트로 낸다(RankingCacheUpdater)</li>
  * </ol>
- * 연동 지점: 결과 저장(stageresult 기능)이 결과 행을 저장한 뒤 이 메서드를 부른다. 재전송(ALREADY_SAVED) 길에서는 부르지 않는다.
+ * 연동: 결과 저장 StageResultService.submitOnce 6번이 결과 행을 저장한 뒤 같은 트랜잭션에서 부른다. 재전송(ALREADY_SAVED) 길에서는 부르지 않는다.
  * 트랜잭션 없이 부르면 예외(MANDATORY): 결과와 랭킹이 따로 커밋되어 어긋나는 일을 막는다.
  */
 @Service
