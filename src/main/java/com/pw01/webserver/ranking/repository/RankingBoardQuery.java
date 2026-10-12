@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 /**
  * 보드를 MySQL에서 읽는다(원천). 쓰는 곳: Redis 보드가 없거나 랭킹 Redis 명령이 실패했을 때의 대신 조회, 다시 채우기, 주간 지역 줄.
  * 보드마다 "한 계정 한 줄"을 내는 원천 쿼리(account_id, score, achieved_at, clear_seq, detail)를 만들고, 그 위에 순서·커서·개수를 씌운다.
- * 순서는 모든 보드가 같다: score DESC → achieved_at → clear_seq(ranking-api.md "보드와 순서", V7 순위 인덱스).
+ * 순서는 모든 보드가 같다: score DESC → achieved_at → clear_seq(ranking-api.md "보드와 순서", V8 순위 인덱스).
  * <ul>
  *   <li>전체 기간: 최고 기록 표 넷(stage_best_record·region_best_score·total_best_score·account_clear_progress)을 그대로. 순위 인덱스 range로 읽는다</li>
  *   <li>주간: ranking_clear_log에서 그 주만 걸러 계정별 최고(지역·전체 총합은 스테이지별 최고의 합). 창 함수라 주의 기록 수에 비례한다</li>
