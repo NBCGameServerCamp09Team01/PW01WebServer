@@ -54,7 +54,7 @@
 - 스키마는 Flyway 마이그레이션(`src/main/resources/db/migration/V{번호}__{설명}.sql`)으로만 바꿉니다(`ddl-auto=validate`). `dev`에 병합된 마이그레이션 파일은 고치지 않고 새 파일을 더합니다.
 - 시간: JVM·DB·JDBC 모두 UTC입니다. 엔티티·DTO의 시각은 `Instant`, JSON은 `Z`가 붙은 ISO-8601(밀리초까지)입니다.
 - 설정: `application.properties`(공통) + 프로필 `local`(각자 PC, compose. 프로필을 정하지 않으면 기본) · `test`(테스트) · `prod`(배포). 테스트 클래스에는 `test` 프로필을 붙입니다.
-- WebSocket은 의존성만 있습니다. 설정·핸들러는 S7 때 만듭니다.
+- WebSocket(S7 실시간 연결)은 `realtime` 패키지와 `config/RealtimeConfig`에 있습니다(루트 `docs/contracts/realtime-api.md`). 다른 기능이 게임에 알릴 때는 `RealtimeNotifier.send`만 부르고, 메시지 종류는 명세 "메시지 종류" 표에 먼저 적습니다. `@EnableScheduling`은 켜지 않았습니다(heartbeat는 전용 스케줄러).
 
 ## 테스트
 
