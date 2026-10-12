@@ -44,6 +44,11 @@ public class AccountProgress extends BaseEntity{
         this.statPoints += gain.statPointsGained();
     }
 
+    /** 스탯 투자로 포인트를 쓰거나(음수) 돌려받는다(양수). 0 아래가 되지 않는지는 서비스가 먼저 판정한다 */
+    public void changeStatPoints(int delta) {
+        this.statPoints += delta;
+    }
+
     public static AccountProgress initial(Long accountId){
         AccountProgress progress = new AccountProgress();
         progress.accountId = accountId;

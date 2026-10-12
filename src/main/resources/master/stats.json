@@ -1,0 +1,8 @@
+{
+  "stats": [
+    { "tag": "Account.Stat.MaxHealth", "maxPoints": 10, "bonusPerPoint": 10.0 },
+    { "tag": "Account.Stat.MaxStamina", "maxPoints": 10, "bonusPerPoint": 5.0 },
+    { "tag": "Account.Stat.AttackPower", "maxPoints": 10, "bonusPerPoint": 0.5 },
+    { "tag": "Account.Stat.DefensePower", "maxPoints": 10, "bonusPerPoint": 1.0 }
+  ]
+}
