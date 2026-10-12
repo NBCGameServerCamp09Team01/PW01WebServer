@@ -72,11 +72,11 @@ public class SkillService {
         return SkillUnlockResponse.of(skillTag, saveStatus, accountService.getSnapshot(accountId));
     }
 
+    /** 해금한 스킬도 조건 진행도를 보낸다(화면 표시용). 누적 기록은 해금해도 줄지 않으므로 서버 값을 그대로 보여 준다 */
     private SkillListResponse.SkillView view(SkillsFile.Skill skill, AccountFacts facts) {
         List<RequirementProgress> requirements = skillJudge.judge(skill, facts);
         String state = skillJudge.state(skill, facts, requirements);
-        return new SkillListResponse.SkillView(skill.tag(), state, skill.cost(),
-                SkillJudge.UNLOCKED.equals(state) ? List.of() : requirements);
+        return new SkillListResponse.SkillView(skill.tag(), state, skill.cost(), requirements);
     }
 
 }

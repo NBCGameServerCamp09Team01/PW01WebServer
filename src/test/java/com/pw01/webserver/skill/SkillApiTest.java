@@ -241,7 +241,9 @@ class SkillApiTest {
         skills(token).andExpect(jsonPath("$.data.skills[2].requirements[4].met").value(true));
     }
 
-    // 확인(K2 상태 4가지): 해금함 UNLOCKED(requirements 빈 배열), 다 됨 UNLOCKABLE, 포인트만 모자람 NEED_POINTS, 조건 미충족 LOCKED
+    // 확인(K2 상태 4가지): 해금함 UNLOCKED, 다 됨 UNLOCKABLE, 포인트만 모자람 NEED_POINTS, 조건 미충족 LOCKED.
+    //       해금한 스킬도 조건 진행도를 보내고, 해금해도 누적 기록(클리어 1/1)은 줄지 않는다.
+    //       실패하면 SkillService.view가 UNLOCKED의 requirements를 비우는지 의심(화면이 로컬 통계로 0/1을 그림)
     @Test
     void 진행도_조회는_상태를_네_가지로_준다() throws Exception {
         String token = signupAndLogin("SkillApi09", "스킬해금09");
@@ -257,7 +259,10 @@ class SkillApiTest {
                 .andExpect(jsonPath("$.data.statPoints").value(2))
                 .andExpect(jsonPath("$.data.skills[0].skillTag").value(COMBO4))
                 .andExpect(jsonPath("$.data.skills[0].state").value("UNLOCKED"))
-                .andExpect(jsonPath("$.data.skills[0].requirements", hasSize(0)))
+                .andExpect(jsonPath("$.data.skills[0].requirements", hasSize(2)))
+                .andExpect(jsonPath("$.data.skills[0].requirements[1].type").value("STAGES_CLEARED"))
+                .andExpect(jsonPath("$.data.skills[0].requirements[1].current").value(1.0))
+                .andExpect(jsonPath("$.data.skills[0].requirements[1].met").value(true))
                 .andExpect(jsonPath("$.data.skills[1].state").value("UNLOCKABLE"))
                 .andExpect(jsonPath("$.data.skills[1].cost").value(2))
                 .andExpect(jsonPath("$.data.skills[2].state").value("LOCKED"));

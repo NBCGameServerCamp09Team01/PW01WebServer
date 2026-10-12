@@ -18,7 +18,7 @@ public record SkillListResponse(List<SkillView> skills, int statPoints, long ver
      * @param skillTag     스킬 태그
      * @param state        LOCKED · NEED_POINTS · UNLOCKABLE · UNLOCKED(SkillJudge)
      * @param cost         비용(스탯 포인트)
-     * @param requirements 조건 전부의 진행도(선행 → 비용 → 나머지). UNLOCKED면 빈 목록
+     * @param requirements 조건 전부의 진행도(선행 → 비용 → 나머지). UNLOCKED도 보낸다(표시용)
      */
     public record SkillView(String skillTag, String state, int cost, List<RequirementProgress> requirements) {
     }
