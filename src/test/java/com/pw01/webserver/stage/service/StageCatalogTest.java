@@ -41,6 +41,18 @@ class StageCatalogTest {
         assertThat(catalog.waveCount("stage.01.02")).isEqualTo(5);
     }
 
+    // 확인: 랭킹 점수 기준(권장 클리어 시간)과 지역 찾기. 틀리면 stages.json·toRegion을 의심
+    @Test
+    void 권장_시간과_지역() {
+        assertThat(catalog.get("stage.01.01").recommendedClearSeconds()).isEqualTo(300);
+        assertThat(catalog.getRegion("region.01").stages()).extracting(StageDef::stageId)
+                .containsExactly("stage.01.01", "stage.01.02");
+        assertThat(catalog.findRegion("region.99")).isEmpty();
+        assertThatThrownBy(() -> catalog.getRegion("region.99"))
+                .isInstanceOfSatisfying(NotFoundException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(StageErrors.REGION_NOT_FOUND));
+    }
+
     // 확인: 없는 키는 STAGE_NOT_FOUND, find는 빈 값(null 키 포함), 키는 대소문자를 가린다
     @Test
     void 없는_키() {

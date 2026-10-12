@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 /**
  * stages.json 검사. 하나라도 걸리면 MasterDataException → 기동 실패.
  * 1 지역·스테이지가 하나 이상 / 2 키 모양·이름 / 3 키 중복 없음 / 4 order ≥ 1, 겹치지 않음
- * 5 waveCount ≥ 1 / 6 requires는 null이거나 있는 다른 스테이지 / 7 requires 순환 없음 / 8 requires가 없는 스테이지가 하나 이상
+ * 5 waveCount ≥ 1, recommendedClearSeconds ≥ 1 / 6 requires는 null이거나 있는 다른 스테이지 / 7 requires 순환 없음 / 8 requires가 없는 스테이지가 하나 이상
  */
 public final class StageMasterValidator {
 
@@ -55,6 +55,9 @@ public final class StageMasterValidator {
                 checkOrder(stage.order(), stageOrders, "스테이지 " + stage.stageId());
                 if (stage.waveCount() < 1) {
                     throw fail("waveCount는 1 이상이어야 합니다: " + stage.stageId());
+                }
+                if (stage.recommendedClearSeconds() < 1) {
+                    throw fail("recommendedClearSeconds는 1 이상이어야 합니다: " + stage.stageId());
                 }
             }
         }

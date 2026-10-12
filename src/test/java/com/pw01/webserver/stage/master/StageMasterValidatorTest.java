@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class StageMasterValidatorTest {
 
     private static StageEntry stage(String id, int order, String requires) {
-        return new StageEntry(id, "스테이지", order, requires, 5);
+        return new StageEntry(id, "스테이지", order, requires, 5, 300);
     }
 
     private static StageMasterFile file(RegionEntry... regions) {
@@ -58,7 +58,7 @@ class StageMasterValidatorTest {
     void 키_모양과_이름() {
         assertFails(file(region("Region.01", 1, stage("stage.01.01", 1, null))), "Region.01");
         assertFails(file(region("region.01", 1, stage("stage_01_01", 1, null))), "stage_01_01");
-        assertFails(file(region("region.01", 1, new StageEntry("stage.01.01", " ", 1, null, 5))), "name");
+        assertFails(file(region("region.01", 1, new StageEntry("stage.01.01", " ", 1, null, 5, 300))), "name");
     }
 
     // 규칙 3: 지역 키·스테이지 키 중복(스테이지는 지역이 달라도 전체에서 하나)
@@ -87,8 +87,15 @@ class StageMasterValidatorTest {
     // 규칙 5: waveCount는 1 이상(파일에서 칸이 빠지면 0으로 들어온다)
     @Test
     void 웨이브_수() {
-        assertFails(file(region("region.01", 1, new StageEntry("stage.01.01", "스테이지", 1, null, 0))),
+        assertFails(file(region("region.01", 1, new StageEntry("stage.01.01", "스테이지", 1, null, 0, 300))),
                 "waveCount");
+    }
+
+    // 규칙 5: 권장 클리어 시간도 1 이상(칸이 빠지면 0 → 랭킹 점수식이 0으로 나누게 됨)
+    @Test
+    void 권장_클리어_시간() {
+        assertFails(file(region("region.01", 1, new StageEntry("stage.01.01", "스테이지", 1, null, 5, 0))),
+                "recommendedClearSeconds");
     }
 
     // 규칙 6: requires는 있는 다른 스테이지

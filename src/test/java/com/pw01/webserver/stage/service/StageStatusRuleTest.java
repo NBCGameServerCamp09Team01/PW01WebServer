@@ -12,8 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class StageStatusRuleTest {
 
-    private static final StageDef FIRST = new StageDef("stage.01.01", "region.01", "스테이지 1", 1, null, 5);
-    private static final StageDef SECOND = new StageDef("stage.01.02", "region.01", "스테이지 2", 2, "stage.01.01", 5);
+    private static final StageDef FIRST = new StageDef("stage.01.01", "region.01", "스테이지 1", 1, null, 5, 300);
+    private static final StageDef SECOND = new StageDef("stage.01.02", "region.01", "스테이지 2", 2, "stage.01.01", 5, 300);
 
     // 확인: 새 계정(클리어 없음) — 첫 스테이지 OPEN, 둘째 LOCKED
     @Test
