@@ -296,7 +296,7 @@ Gradle 9는 테스트 소스가 있는데 테스트가 하나도 발견되지 �
 | `spring-boot-starter-flyway` + `flyway-mysql` | Flyway 12와 MySQL 지원 모듈 | 앱이 뜰 때 `db/migration`의 SQL 파일을 버전 순서대로 한 번씩 적용하고, 적용 이력을 `flyway_schema_history` 테이블에 남긴다. Flyway는 DB별 지원을 모듈로 나눠 두어 MySQL에는 `flyway-mysql`이 따로 필요하다 | `V1__example.sql` |
 | `mysql-connector-j` (runtimeOnly) | MySQL JDBC 드라이버 9.7 | `jdbc:mysql://…` 주소로 MySQL에 접속한다 | DataSource |
 | `spring-boot-starter-data-redis` | Spring Data Redis, Lettuce | `RedisTemplate`·`StringRedisTemplate`으로 Redis 명령을 보낸다. Redis 저장소 기능(`@RedisHash`)은 꺼 두었다. 실제 사용은 중복 방지 키·세션(S1·S5)부터 | `InfraConnectionTest` |
-| `spring-boot-starter-actuator` | Actuator | `/actuator/health`로 앱과 DB·Redis 연결 상태를 알려 준다. 웹에는 health만 연다 | 로컬 확인, 스모크 테스트, 배포 상태 확인 |
+| `spring-boot-starter-actuator` | Actuator | `/actuator/health`로 앱과 DB·Redis 연결 상태를, `info`로 버전·커밋을, `metrics`·`loggers`로 수치·로그 수준을 알려 준다. 웹에는 이 네 가지만 열고, `prod`에서는 관리 포트(8081)에서만 연다(10/13) | 로컬 확인, 스모크 테스트, 배포 상태 확인 |
 | `spring-boot-starter-websocket` | Spring WebSocket | 실시간 연결(S7). `realtime` 패키지, `config/RealtimeConfig`(경로 `/realtime`), 명세는 루트 `docs/contracts/realtime-api.md` | — |
 | `springdoc-openapi-starter-webmvc-ui` 3.1.1 | OpenAPI 문서 생성기, Swagger UI | 코드에서 API 문서를 만들어 `/swagger-ui/index.html`에서 보여 주고 직접 호출해 볼 수 있다. **확인용 보기**이고 명세 원본은 루트 `docs/contracts/`다. 3.1.x가 Boot 4.1 대응판이다 | 로컬 확인 |
 | `lombok` (compileOnly + annotationProcessor) | Lombok | 컴파일할 때 getter·생성자를 만들어 준다(`@Getter`, `@NoArgsConstructor`, `@RequiredArgsConstructor`) | 엔티티, 서비스, 예외 |
@@ -363,7 +363,10 @@ Gradle 9는 테스트 소스가 있는데 테스트가 하나도 발견되지 �
 | `#spring.data.web.pageable.max-page-size=` | (주석) | 목록 API의 페이지 크기 상한. 값은 목록 API를 설계할 때 정한다(W17) |
 | `spring.data.redis.repositories.enabled` | `false` | Redis는 RedisTemplate으로만 쓰므로 Redis 저장소 스캔을 끈다(JPA 저장소에 대한 안내 로그 제거) |
 | `spring.jackson.deserialization.fail-on-unknown-properties` | `true` | 요청 JSON에 모르는 필드가 있으면 400. Spring Boot는 이 기능을 기본으로 꺼서 모르는 필드를 무시하므로 다시 켰다(W30, 루트 공통 규칙) |
-| `management.endpoints.web.exposure.include` | `health` | Actuator 엔드포인트 중 health만 웹에 연다 |
+| `management.endpoints.web.exposure.include` | `health,info,metrics,loggers` | Actuator 엔드포인트 중 이 네 가지만 웹에 연다. 처음(10/6)에는 health만이었다(10/13 바뀜) |
+| `management.endpoint.health.show-details` | `always` | health에 `components.db`·`components.redis`처럼 하위 상태를 보인다. 장애 때 어느 저장소인지 바로 본다. `prod`에서는 밖에 열지 않는 관리 포트 안이다 |
+| `management.info.env.enabled` | `true` | `info.*` 설정 값을 `/actuator/info`에 싣는다 |
+| `info.app.commit` | `${APP_COMMIT:local}` | 이미지를 만든 커밋. 이미지 빌드 때 `APP_COMMIT`으로 넣고, 로컬·테스트는 `local`. 이름·버전·빌드 시각은 `build.gradle`의 `springBoot { buildInfo() }`가 넣는다 |
 
 ### 6-3. `application-local.properties`
 
@@ -380,6 +383,15 @@ Gradle 9는 테스트 소스가 있는데 테스트가 하나도 발견되지 �
 ### 6-4. `application-prod.properties`
 
 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`를 모두 환경 변수로만 받습니다. 기본값이 없어서 하나라도 빠지면 기동이 실패합니다. 값은 배포 계획(D-4) 때 AWS Parameter Store 등에서 넣습니다.
+
+운영 확인용 설정 두 개를 더 둡니다(10/13).
+
+| 키 | 값 | 뜻 |
+|---|---|---|
+| `management.server.port` | `${MANAGEMENT_PORT:8081}` | Actuator를 앱 포트(8080)가 아닌 관리 포트에서만 연다. 앱 포트의 `/actuator/*`는 404. 관리 포트는 밖에 열지 않는다(보안 그룹) |
+| `logging.structured.format.console` | `ecs` | 콘솔 로그를 한 줄 JSON(ECS 형식)으로 쓴다. MDC의 `requestId`가 칸으로 들어가 로그 검색으로 요청을 찾는다 |
+
+local·test는 관리 포트를 나누지 않습니다. 스모크 테스트가 MockMvc로 `/actuator/health`를 부르기 때문입니다.
 
 ### 6-5. `application-test.properties`
 

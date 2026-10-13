@@ -57,5 +57,8 @@ Controller(요청 DTO 검증) → Service(판정·트랜잭션) → Repository �
 | `REDIS_PORT` | compose, local, prod | 기본 6379(compose·local) |
 | `REDIS_PASSWORD` | compose, local, prod | 기본값 없음 |
 | `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST` | prod | 배포 환경에서 넣는다(배포 계획 D-4) |
+| `SPRING_PROFILES_ACTIVE` | prod | 배포에서 `prod`. 정하지 않으면 `local` |
+| `MANAGEMENT_PORT` | prod | Actuator 관리 포트. 기본 8081. 밖에 열지 않는다 |
+| `APP_COMMIT` | 이미지 | 이미지를 만든 커밋(`/actuator/info`의 `app.commit`). 이미지 빌드 때 넣고, 없으면 `local` |
 
 새 환경변수를 추가하면 이 표와 `.env.example`(로컬에서 쓰는 것이면)에 함께 적습니다.

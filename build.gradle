@@ -14,6 +14,11 @@ java {
     }
 }
 
+// /actuator/info에 이름·버전·빌드 시각을 싣는다(META-INF/build-info.properties)
+springBoot {
+    buildInfo()
+}
+
 repositories {
     mavenCentral()
 }
