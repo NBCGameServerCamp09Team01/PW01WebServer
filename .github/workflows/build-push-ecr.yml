@@ -1,0 +1,98 @@
+# dev에 병합되면 빌드·테스트 → 이미지 → ECR에 올린다. 배포는 하지 않는다(배포는 deploy-<대상>.yml로 따로).
+# 파일 이름 규칙: <동작>-<대상>.yml. 이미지 pw01/webserver, 태그 dev-<커밋 해시 40자>(어느 브랜치에서 만들었는지)
+# AWS 접속은 OIDC로 역할을 받는다(액세스 키 없음). 역할·지역·저장소 이름은 저장소 변수(Settings → Variables)에 둔다.
+# 저장소 변수 AWS_ROLE_ARN이 없으면 작업 전체를 건너뛴다(실패 아님).
+name: Build and Push Image (ECR)
+
+on:
+  push:
+    branches: [dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  # 손으로 다시 돌리기(Actions 화면). 역할 신뢰 조건이 dev 브랜치뿐이라 dev에서만 돈다
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+# 병합이 이어지면 차례로 돈다(중간 것을 취소하지 않음 — 커밋마다 이미지)
+concurrency:
+  group: build-push-ecr-dev
+  cancel-in-progress: false
+
+jobs:
+  build-push:
+    if: ${{ vars.AWS_ROLE_ARN != '' && github.ref == 'refs/heads/dev' }}
+    runs-on: ubuntu-latest
+    env:
+      # 태그 = <브랜치>-<커밋 해시 40자>. /actuator/info의 app.commit은 해시만
+      IMAGE_TAG: dev-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # ci.yml과 같은 JDK·Gradle
+      - uses: actions/setup-java@v6
+        with:
+          distribution: microsoft
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      # 병합된 결과로 다시 시험한다. 실패하면 이미지를 만들지 않는다
+      - name: Build and test
+        run: ./gradlew build
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: build/reports/tests/
+
+      - name: Get AWS role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 태그를 바꿀 수 없는 저장소라, 같은 커밋으로 다시 돌리면 올리기가 실패한다. 이미 있으면 건너뛴다
+      - name: Check existing tag
+        id: existing
+        env:
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          if aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG" > /dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push image
+        if: steps.existing.outputs.found == 'false'
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          APP_COMMIT: ${{ github.sha }}
+        run: |
+          docker build --build-arg APP_COMMIT="$APP_COMMIT" -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Summary
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          FOUND: ${{ steps.existing.outputs.found }}
+        run: |
+          if [ "$FOUND" = "true" ]; then
+            echo "이미 있음(건너뜀): \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "올림: \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+          fi

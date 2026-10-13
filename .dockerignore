@@ -1,0 +1,10 @@
+# 이미지 빌드에 넣지 않는 것. 비밀값(.env*)과 로컬 산출물·설정
+.env
+.env.*
+build/
+.gradle/
+.git/
+.github/
+.idea/
+*.iml
+docs/

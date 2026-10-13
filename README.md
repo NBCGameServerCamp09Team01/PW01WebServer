@@ -80,6 +80,19 @@ docker compose ps
 
 cmd와 PowerShell(IntelliJ 터미널 기본) 모두 `.\gradlew`로 실행합니다. 테스트가 MySQL·Redis 컨테이너를 잠깐 띄우므로 Docker Desktop이 켜져 있어야 합니다. PR을 올리면 GitHub Actions(CI)가 같은 빌드를 돌립니다.
 
+### 6. 이미지 (선택 — 배포용 컨테이너를 로컬에서 볼 때만)
+
+평소 개발에는 필요 없습니다. `dev`에 병합되면 GitHub Actions(`build-push-ecr.yml`)가 이미지를 만들어 AWS ECR `pw01/webserver`에 올립니다(태그 `dev-<커밋 해시>`, 배포는 하지 않음).
+
+```bat
+docker build -t pw01/webserver:local --build-arg APP_COMMIT=<커밋 해시> .
+docker run --rm --network pw01-local_default --env-file .env.docker -p 8080:8080 -p 8081:8081 pw01/webserver:local
+```
+
+- 3번의 compose(MySQL·Redis)가 떠 있어야 합니다. `--network`는 compose 네트워크 이름입니다(`docker network ls`).
+- `.env.docker`는 직접 만듭니다(커밋되지 않음). `SPRING_PROFILES_ACTIVE=prod`, `DB_URL=jdbc:mysql://mysql:3306/pw01`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST=redis`, `REDIS_PORT=6379`, `REDIS_PASSWORD` — 값은 `.env`와 같습니다.
+- 실행 중인 IntelliJ 앱과 8080이 겹치면 먼저 멈춥니다.
+
 ## 구조
 
 ```
