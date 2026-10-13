@@ -69,8 +69,14 @@ docker compose ps
 
 확인:
 
-- http://localhost:8080/actuator/health → `{"status":"UP"}`
+- http://localhost:8080/actuator/health → `"status":"UP"`, `components`에 `db`·`redis`도 각각 `UP`
 - Swagger UI(확인용): http://localhost:8080/swagger-ui/index.html
+
+운영 확인(local은 8080, `prod`는 관리 포트 8081에서만):
+
+- 상태·버전: `/actuator/health`(DB·Redis 하위 상태), `/actuator/info`(버전·커밋), `/actuator/metrics`, `/actuator/loggers`
+- 저장소가 막혔을 때: `docker compose stop redis` → health `DOWN` → API가 503. 응답 헤더 `X-Request-Id` 값으로 콘솔 로그를 찾으면 `저장소에 닿지 못함` 줄이 나온다. 끝나면 `docker compose start redis`
+- 로그 수준 바꾸기: `POST /actuator/loggers/com.pw01.webserver`에 `{"configuredLevel":"DEBUG"}`, 되돌릴 때 `{"configuredLevel":null}`
 
 ### 5. 빌드·테스트
 
