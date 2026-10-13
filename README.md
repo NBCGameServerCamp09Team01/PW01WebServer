@@ -90,7 +90,7 @@ docker run --rm --network pw01-local_default --env-file .env.docker -p 8080:8080
 ```
 
 - 3번의 compose(MySQL·Redis)가 떠 있어야 합니다. `--network`는 compose 네트워크 이름입니다(`docker network ls`).
-- `.env.docker`는 직접 만듭니다(커밋되지 않음). `SPRING_PROFILES_ACTIVE=prod`, `DB_URL=jdbc:mysql://mysql:3306/pw01`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST=redis`, `REDIS_PORT=6379`, `REDIS_PASSWORD` — 값은 `.env`와 같습니다.
+- `.env.docker`는 견본에서 만듭니다: `copy .env.docker.example .env.docker` → `DB_PASSWORD`·`REDIS_PASSWORD`에 `.env`와 같은 값(`MYSQL_PASSWORD`·`REDIS_PASSWORD`)을 넣습니다. `.env.docker`는 커밋되지 않습니다.
 - 실행 중인 IntelliJ 앱과 8080이 겹치면 먼저 멈춥니다.
 
 ## 구조
