@@ -13,6 +13,7 @@ import com.pw01.webserver.stageplay.dto.StagePlayIds;
 import com.pw01.webserver.stageplay.entity.StagePlay;
 import com.pw01.webserver.stageplay.entity.StagePlayStatus;
 import com.pw01.webserver.stageplay.repository.StagePlayRepository;
+import com.pw01.webserver.stageplay.service.StagePlayEndedEvent;
 import com.pw01.webserver.stageplay.service.StagePlayErrors;
 import com.pw01.webserver.stageresult.dto.ResultSubmitRequest;
 import com.pw01.webserver.stageresult.dto.ResultSubmitResponse;
@@ -24,6 +25,7 @@ import com.pw01.webserver.stageresult.repository.StageResultTotalsQuery;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -59,6 +61,7 @@ public class StageResultService {
     private final ProgressWriter progressWriter;
     private final TransactionTemplate transactionTemplate;
     private final RankingRecordService rankingRecordService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ResultSubmitResponse submit(Long accountId, String pathStagePlayId, ResultSubmitRequest request) {
         String stagePlayId = StagePlayIds.normalize(pathStagePlayId).orElseThrow(StagePlayErrors::badId);
@@ -120,6 +123,8 @@ public class StageResultService {
                 request.killCount(), reward.gain()));
         // 플레이를 CLEARED·FAILED로 끝낸다. 진행 중이 아니면 409(마지막 방어, 보통은 검사에서 먼저 걸림)
         play.endWithResult(cleared, now);
+        // 커밋 뒤 그 플레이의 체크포인트를 지운다(PlayCheckpointCleaner, 실패해도 이 응답에는 영향 없음)
+        eventPublisher.publishEvent(new StagePlayEndedEvent(play.getId()));
 
         // 5. 같은 트랜잭션에서 클리어 기록. 스테이지·플레이 ID는 플레이 행 값
         boolean firstClear = stageProgressService.recordResult(accountId, play.getStageId(), cleared, play.getId());

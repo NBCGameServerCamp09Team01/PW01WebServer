@@ -14,6 +14,7 @@ import com.pw01.webserver.stageplay.repository.StagePlayRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class StagePlayService {
     private final AccountService accountService;
     private final StagePlayProperties stagePlayProperties;
     private final TransactionTemplate transactionTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * P1 시작. 같은 계정의 시작이 동시에 둘 오면 하나는 DB 유일 제약(같은 requestId 또는 진행 중 하나)에 걸린다.
@@ -113,6 +115,8 @@ public class StagePlayService {
         }
         play.expireIfDue(now);
         play.abandon(now);
+        // 커밋 뒤 그 플레이의 체크포인트를 지운다(PlayCheckpointCleaner)
+        eventPublisher.publishEvent(new StagePlayEndedEvent(play.getId()));
         log.info("스테이지 플레이 포기 stagePlayId={} accountId={} stage={}", play.getId(), accountId, play.getStageId());
         return StagePlayResponse.from(play);
     }
