@@ -19,6 +19,7 @@ public final class StagePlayErrors {
     public static final String STAGE_PLAY_IN_PROGRESS = "STAGE_PLAY_IN_PROGRESS";
     public static final String STAGE_PLAY_NOT_IN_PROGRESS = "STAGE_PLAY_NOT_IN_PROGRESS";
     public static final String STAGE_PLAY_EXPIRED = "STAGE_PLAY_EXPIRED";
+    public static final String CHECKPOINT_OUT_OF_ORDER = "CHECKPOINT_OUT_OF_ORDER";
 
     private StagePlayErrors() {
     }
@@ -53,6 +54,23 @@ public final class StagePlayErrors {
     public static InvalidRequestException badId() {
         return new InvalidRequestException(CommonErrorCode.VALIDATION_FAILED, "요청 값이 올바르지 않습니다.",
                 List.of(new FieldErrorDetail("stagePlayId", "스테이지 플레이 ID는 UUID(하이픈 36자)여야 합니다.")));
+    }
+
+    /** 409: 저장된 체크포인트보다 앞선 웨이브를 올림(늦게 도착한 요청 또는 게임 버그). 다시 보내도 같으므로 retryable false */
+    public static ConflictException checkpointOutOfOrder() {
+        return new ConflictException(CHECKPOINT_OUT_OF_ORDER, "저장된 체크포인트보다 앞선 웨이브입니다.");
+    }
+
+    /** 400: 체크포인트 clearedWave가 플레이의 웨이브 수 이상(마지막 웨이브를 클리어하면 체크포인트 대신 결과를 낸다) */
+    public static InvalidRequestException badCheckpointWave(int waveCount) {
+        return new InvalidRequestException(CommonErrorCode.VALIDATION_FAILED, "요청 값이 올바르지 않습니다.",
+                List.of(new FieldErrorDetail("clearedWave", "clearedWave는 1 이상 " + waveCount + " 미만이어야 합니다.")));
+    }
+
+    /** 400: 체크포인트 state가 JSON 객체가 아니거나 너무 큼 */
+    public static InvalidRequestException badCheckpointState(String reason) {
+        return new InvalidRequestException(CommonErrorCode.VALIDATION_FAILED, "요청 값이 올바르지 않습니다.",
+                List.of(new FieldErrorDetail("state", reason)));
     }
 
     /** 400: 목록 조회 status는 지금 IN_PROGRESS만 */
