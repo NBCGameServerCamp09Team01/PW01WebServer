@@ -2,6 +2,7 @@ package com.pw01.webserver.stageplay.service;
 
 import com.pw01.webserver.account.service.AccountService;
 import com.pw01.webserver.config.StagePlayProperties;
+import com.pw01.webserver.stage.service.StageCatalog;
 import com.pw01.webserver.stage.service.StageDef;
 import com.pw01.webserver.stage.service.StageProgressService;
 import com.pw01.webserver.stageplay.dto.InProgressStagePlayListResponse;
@@ -30,6 +31,7 @@ import java.util.Optional;
  * 스테이지 플레이 시작·현황(공유 초안 stage-play-api-draft-1009.md P1~P5).
  * 계정당 진행 중은 하나다. 마감이 지난 진행 중 플레이는 따로 도는 정리 작업 없이, 읽거나 새로 시작할 때 EXPIRED로 바꾼다.
  * 결과 제출은 결과 기능(stageresult 패키지)이 맡고, 결과가 저장될 때 StagePlay.endWithResult로 플레이를 끝낸다.
+ * 웨이브 구성(M24, stage-play-api.md "웨이브 구성")은 시작 때 플레이에 고정하고, P1~P4 응답은 모두 그 값을 돌려준다.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,6 +41,8 @@ public class StagePlayService {
 
     private final StagePlayRepository stagePlayRepository;
     private final StageProgressService stageProgressService;
+    private final StageCatalog stageCatalog;
+    private final WavePlanCodec wavePlanCodec;
     private final AccountService accountService;
     private final StagePlayProperties stagePlayProperties;
     private final TransactionTemplate transactionTemplate;
@@ -66,7 +70,7 @@ public class StagePlayService {
             if (!sameRequest.get().getStageId().equals(request.stageId())) {
                 throw StagePlayErrors.requestIdReused();
             }
-            return StagePlayResponse.from(sameRequest.get());
+            return toResponse(sameRequest.get());
         }
 
         // 2. 진행 중 플레이가 있으면 막는다. 마감이 지났으면 EXPIRED로 끝내고(유일 제약 자리를 비움) 계속
@@ -82,11 +86,14 @@ public class StagePlayService {
         // 3. d의 스테이지 확인: 없으면 404 STAGE_NOT_FOUND, 잠겼으면 403 STAGE_LOCKED
         StageDef stage = stageProgressService.requireStartable(accountId, request.stageId());
 
-        // 4. 발급. 바로 flush해서 동시 시작의 유일 제약 위반을 여기서 드러낸다
+        // 4. 발급. 웨이브 수와 구성·버전은 같은 정의(StageDef)에서 함께 저장한다(체크포인트 범위 = 구성 길이).
+        //    바로 flush해서 동시 시작의 유일 제약 위반을 여기서 드러낸다
         StagePlay play = stagePlayRepository.saveAndFlush(StagePlay.start(accountId, stage,
-                request.difficultyOrDefault(), requestId, now, stagePlayProperties.validity()));
-        log.info("스테이지 플레이 시작 stagePlayId={} accountId={} stage={}", play.getId(), accountId, stage.stageId());
-        return StagePlayResponse.from(play);
+                request.difficultyOrDefault(), requestId, now, stagePlayProperties.validity(),
+                wavePlanCodec.write(stage.waves()), stageCatalog.waveVersion()));
+        log.info("스테이지 플레이 시작 stagePlayId={} accountId={} stage={} waveVersion={}", play.getId(), accountId,
+                stage.stageId(), play.getWaveVersion());
+        return toResponse(play);
     }
 
     /** P2 내 진행 중 플레이. 없으면 빈 값(204). 마감이 지났으면 여기서 EXPIRED로 끝내고 빈 값 */
@@ -94,7 +101,7 @@ public class StagePlayService {
     public Optional<StagePlayResponse> getCurrent(Long accountId) {
         return stagePlayRepository.findByAccountIdAndStatus(accountId, StagePlayStatus.IN_PROGRESS)
                 .filter(play -> !play.expireIfDue(now()))
-                .map(StagePlayResponse::from);
+                .map(this::toResponse);
     }
 
     /** P3 내 플레이 하나. 마감이 지난 진행 중이면 EXPIRED로 바꿔 돌려준다 */
@@ -102,7 +109,7 @@ public class StagePlayService {
     public StagePlayResponse get(Long accountId, String pathStagePlayId) {
         StagePlay play = findMine(accountId, pathStagePlayId);
         play.expireIfDue(now());
-        return StagePlayResponse.from(play);
+        return toResponse(play);
     }
 
     /** P4 포기: 실패로 끝냄(결과·보상 없음). 이미 포기한 플레이면 그대로 200(재전송), 결과·만료로 끝났으면 409 */
@@ -111,14 +118,14 @@ public class StagePlayService {
         StagePlay play = findMine(accountId, pathStagePlayId);
         Instant now = now();
         if (play.isAbandoned()) {
-            return StagePlayResponse.from(play);
+            return toResponse(play);
         }
         play.expireIfDue(now);
         play.abandon(now);
         // 커밋 뒤 그 플레이의 체크포인트를 지운다(PlayCheckpointCleaner)
         eventPublisher.publishEvent(new StagePlayEndedEvent(play.getId()));
         log.info("스테이지 플레이 포기 stagePlayId={} accountId={} stage={}", play.getId(), accountId, play.getStageId());
-        return StagePlayResponse.from(play);
+        return toResponse(play);
     }
 
     /** P5 모든 계정의 진행 중 플레이(마감 전, 최근 시작 순 50개). status는 지금 IN_PROGRESS만 */
@@ -131,6 +138,21 @@ public class StagePlayService {
                 .findTop50ByStatusAndExpiresAtAfterOrderByStartedAtDesc(StagePlayStatus.IN_PROGRESS, now());
         return InProgressStagePlayListResponse.from(plays,
                 accountService.getNicknames(plays.stream().map(StagePlay::getAccountId).distinct().toList()));
+    }
+
+    /**
+     * 플레이 → 응답. 웨이브 구성은 시작 때 저장한 값을 쓴다(그 사이 서버 정의가 바뀌어도 그대로).
+     * V9 전에 시작해 구성이 없는 플레이는 지금 정의로 채운다. 지금 웨이브 수가 그 플레이의 waveCount와 다르면
+     * 체크포인트 범위(waveCount)와 어긋난 구성을 주지 않도록 null로 둔다(게임은 판을 시작하지 않는다).
+     */
+    private StagePlayResponse toResponse(StagePlay play) {
+        if (play.getWavePlan() != null) {
+            return StagePlayResponse.from(play, play.getWaveVersion(), wavePlanCodec.read(play.getWavePlan()));
+        }
+        return stageCatalog.find(play.getStageId())
+                .filter(stage -> stage.waves().size() == play.getWaveCount())
+                .map(stage -> StagePlayResponse.from(play, stageCatalog.waveVersion(), stage.waves()))
+                .orElseGet(() -> StagePlayResponse.from(play, null, null));
     }
 
     private StagePlay findMine(Long accountId, String pathStagePlayId) {

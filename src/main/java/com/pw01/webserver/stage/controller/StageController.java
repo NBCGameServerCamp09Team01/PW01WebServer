@@ -21,7 +21,8 @@ public class StageController {
     /** ST1 지역 → 스테이지 정의. 값은 서버 기동 뒤 바뀌지 않으므로 게임은 한 번 받아 두면 된다 */
     @GetMapping
     public StageListResponse list() {
-        return StageListResponse.from(stageCatalog.regions(), stageCatalog.totalCount());
+        return StageListResponse.from(stageCatalog.regions(), stageCatalog.totalCount(), stageCatalog.waveVersion(),
+                stageCatalog.monsters());
     }
 
 }

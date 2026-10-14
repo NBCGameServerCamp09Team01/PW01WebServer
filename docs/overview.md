@@ -28,7 +28,7 @@ com.pw01.webserver
 ├─ common/error    ErrorResponse, CommonErrorCode, 상태별 예외, GlobalExceptionHandler
 ├─ common/master   MasterDataLoader(resources/master/*.json을 기동 때 읽음, 틀리면 기동 실패. SF-7)
 ├─ config          JpaAuditingConfig
-├─ stage/          지역·스테이지 정보(master/stages.json, ST1 GET /stages)와 계정별 클리어 진행(ST2 GET /accounts/me/stages)
+├─ stage/          지역·스테이지 정보(master/stages.json), 웨이브 구성·몬스터 정의(stage-waves.json·monsters.json, M24), ST1 GET /stages와 계정별 클리어 진행(ST2 GET /accounts/me/stages)
 ├─ ranking/        랭킹(스테이지·지역·전체 총합·진행, 전체·주간). 원천 MySQL 표 5개(V8) + Redis 보드 사본(pw01:rank:*, rank_*.lua).
 │                  JPA 엔티티 없이 JdbcClient. 결과 저장(StageResultService)이 같은 트랜잭션에서 RankingRecordService.recordClear를 부른다. 결정 기록 decisions/0002
 └─ <기능>/          controller · service · repository · entity · dto  (지금은 account·auth)

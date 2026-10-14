@@ -21,8 +21,8 @@ import java.util.UUID;
 
 /**
  * 스테이지 플레이 하나: 계정이 스테이지 하나를 한 번 플레이하는 것(시작 → 결과·포기·만료). 서버가 ID를 발급한다.
- * ID는 UUID 소문자·하이픈 36자(CHAR(36), utf8mb4_0900_bin). 스테이지와 웨이브 수는 요청이 아니라 시작 때의 서버 정의(StageDef)에서 넣고,
- * 결과 검사는 이 값으로 한다. 계정당 진행 중은 하나다(DB 유일 제약 uk_stage_play_one_in_progress, V5).
+ * ID는 UUID 소문자·하이픈 36자(CHAR(36), utf8mb4_0900_bin). 스테이지와 웨이브 수·구성은 요청이 아니라 시작 때의 서버 정의(StageDef)에서 넣고,
+ * 결과 검사·체크포인트 범위·이어하기는 이 값으로 한다(V9 wave_plan, M24). 계정당 진행 중은 하나다(DB 유일 제약 uk_stage_play_one_in_progress, V5).
  * 상태는 한 방향(IN_PROGRESS → CLEARED·FAILED·EXPIRED)이고, 바꾸는 함수는 진행 중이 아니면 거절한다.
  */
 @Entity
@@ -49,6 +49,14 @@ public class StagePlay extends BaseEntity {
     @Column(nullable = false)
     private int waveCount;
 
+    /** 시작 때의 웨이브 구성(WaveDef 목록 JSON, 응답 waves와 같은 칸). V9 전에 시작한 플레이는 null */
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String wavePlan;
+
+    /** 시작 때의 웨이브 정보 버전(예: w1-m1). wavePlan과 함께 null */
+    @Column(length = 32)
+    private String waveVersion;
+
     @Column(nullable = false)
     private int difficulty;
 
@@ -73,13 +81,19 @@ public class StagePlay extends BaseEntity {
 
     private Instant endedAt;
 
+    /**
+     * @param wavePlan    stage.waves()를 JSON으로 쓴 값(WavePlanCodec). 웨이브 수와 같은 정의에서 같이 저장한다
+     * @param waveVersion 그때의 웨이브 정보 버전(StageCatalog.waveVersion)
+     */
     public static StagePlay start(Long accountId, StageDef stage, int difficulty, String startRequestId, Instant now,
-                                  Duration validity) {
+                                  Duration validity, String wavePlan, String waveVersion) {
         StagePlay play = new StagePlay();
         play.id = UUID.randomUUID().toString();
         play.accountId = accountId;
         play.stageId = stage.stageId();
         play.waveCount = stage.waveCount();
+        play.wavePlan = wavePlan;
+        play.waveVersion = waveVersion;
         play.difficulty = difficulty;
         play.status = StagePlayStatus.IN_PROGRESS;
         play.startRequestId = startRequestId;
