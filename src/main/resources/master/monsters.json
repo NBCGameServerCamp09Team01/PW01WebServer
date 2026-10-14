@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "monsters": [
+    { "monsterId": "monster.samurai", "name": "사무라이", "boss": false, "goldReward": 2, "goldDropChance": 1.0 },
+    { "monsterId": "monster.archer", "name": "궁수", "boss": false, "goldReward": 3, "goldDropChance": 1.0 },
+    { "monsterId": "monster.boss.warrior", "name": "무사 보스", "boss": true, "goldReward": 0, "goldDropChance": 1.0 }
+  ]
+}

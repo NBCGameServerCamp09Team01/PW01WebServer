@@ -5,7 +5,7 @@ import java.util.List;
 /**
  * master/stages.json의 모양. 지역 → 스테이지.
  * 키(regionId·stageId)는 UE FName과 같은 문자열이고 바꾸지 않는다(진행·결과 기록이 이 값을 가진다).
- * 웨이브 수의 원본은 UE 웨이브 DataAsset이고 waveCount는 손으로 옮긴 사본이다(기술부채).
+ * 웨이브 구성의 원본은 stage-waves.json이다(M24). waveCount는 그 웨이브 수와 같아야 한다(StageWaveMasterValidator).
  *
  * @param regions 지역 목록. 화면 순서는 order로 정한다(파일 순서와 무관)
  */

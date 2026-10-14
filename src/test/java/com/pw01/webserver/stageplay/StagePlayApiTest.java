@@ -4,6 +4,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.pw01.webserver.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -21,11 +22,13 @@ import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -35,6 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 필수 시험: 중복 방지(같은 시작 요청, 동시 시작, 계정당 진행 중 하나), 예외(상태·코드), 스테이지 진행과의 흐름.
  * 실패하면 StagePlayService의 판단 순서, V5 stage_play의 유일 제약(uk_stage_play_one_in_progress), StagePlay 상태 함수,
  * StageResultService의 상태 검사·endWithResult 자리를 의심한다.
+ * M24 웨이브 구성(stage-play-api.md v1.3 "웨이브 구성")은 StagePlay21~에서 본다: 시작 때 고정, 모든 응답이 같은 구성,
+ * V9 전 플레이 채우기, V9 제약.
  * 테스트끼리 DB를 함께 쓰므로 아이디·닉네임을 서로 다르게 쓴다(StagePlay01~).
  */
 @IntegrationTest
@@ -267,6 +272,107 @@ class StagePlayApiTest {
         start(token, newId(), STAGE_2).andExpect(status().isCreated());
     }
 
+    // 확인(M24 웨이브 구성): P1이 몬스터 값을 풀어 둔 구성·버전을 주고, 같은 값을 플레이에 저장한다(wave_count와 같은 길이).
+    // 실패하면 StageCatalog.toWaves(풀기), StagePlay.start, V9 칼럼, WavePlanCodec을 의심한다
+    @Test
+    void 시작하면_웨이브_구성과_버전을_주고_저장한다() throws Exception {
+        String token = signupAndLogin("StagePlay21", "플레이21");
+        ResultActions started = start(token, newId(), STAGE_1)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.waveVersion").value("w1-m1"))
+                .andExpect(jsonPath("$.data.waves.length()").value(5))
+                .andExpect(jsonPath("$.data.waves[0].waveNumber").value(1))
+                .andExpect(jsonPath("$.data.waves[0].restSeconds").value(0.0))
+                .andExpect(jsonPath("$.data.waves[0].goldChanceMultiplier").value(1.0))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].monsterId").value("monster.samurai"))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].count").value(2))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].goldReward").value(3))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].goldDropChance").value(1.0))
+                .andExpect(jsonPath("$.data.waves[1].enemies[0].goldReward").value(2))
+                .andExpect(jsonPath("$.data.waves[4].bossWave").value(true))
+                .andExpect(jsonPath("$.data.waves[4].enemies[0].boss").value(true))
+                // 없는 스폰 그룹도 칸은 있다(null)
+                .andExpect(content().string(containsString("\"spawnGroup\":null")));
+
+        String id = idOf(started);
+        assertThat(jdbc.queryForObject("SELECT wave_version FROM stage_play WHERE stage_play_id = ?", String.class, id))
+                .isEqualTo("w1-m1");
+        assertThat(jdbc.queryForObject("SELECT JSON_LENGTH(wave_plan) FROM stage_play WHERE stage_play_id = ?",
+                Integer.class, id)).isEqualTo(5);
+    }
+
+    // 확인(M24, 중복 방지·이어하기): 같은 플레이는 P1 재전송·P2·P3·P4 모두 같은 구성·버전을 준다.
+    // 실패하면 StagePlayService.toResponse를 거치지 않는 길이 있는지 의심한다
+    @Test
+    void 같은_플레이는_어느_응답이든_같은_구성() throws Exception {
+        String token = signupAndLogin("StagePlay22", "플레이22");
+        String requestId = newId();
+        String firstBody = body(start(token, requestId, STAGE_1).andExpect(status().isCreated()));
+        String id = JsonPath.read(firstBody, "$.data.stagePlayId");
+        Object waves = JsonPath.read(firstBody, "$.data.waves");
+
+        List<String> bodies = List.of(
+                body(start(token, requestId, STAGE_1).andExpect(status().isCreated())),
+                body(current(token).andExpect(status().isOk())),
+                body(mockMvc.perform(get(PLAYS + "/{id}", id).header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                        .andExpect(status().isOk())),
+                body(abandon(token, id).andExpect(status().isOk())));
+        for (String other : bodies) {
+            assertThat((Object) JsonPath.read(other, "$.data.waves")).isEqualTo(waves);
+            assertThat((String) JsonPath.read(other, "$.data.waveVersion")).isEqualTo("w1-m1");
+        }
+    }
+
+    // 확인(M24, 플레이에 고정): 응답은 지금 서버 정의가 아니라 플레이에 저장한 구성·버전이다.
+    // 서버 정의가 바뀐 것을 저장값을 바꿔 흉내 낸다. 실패하면 toResponse가 StageCatalog를 먼저 보는지 의심한다
+    @Test
+    void 저장한_구성을_돌려준다() throws Exception {
+        String token = signupAndLogin("StagePlay23", "플레이23");
+        String id = idOf(start(token, newId(), STAGE_1).andExpect(status().isCreated()));
+        jdbc.update("""
+                UPDATE stage_play SET wave_plan = JSON_SET(wave_plan, '$[0].enemies[0].count', 99), wave_version = 'w9-m9'
+                WHERE stage_play_id = ?
+                """, id);
+
+        current(token)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.waveVersion").value("w9-m9"))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].count").value(99));
+    }
+
+    // 확인(M24, V9 전 플레이): 구성이 없는 진행 중 플레이는 지금 정의로 채운다. 지금 웨이브 수가 플레이의 waveCount와
+    // 다르면(체크포인트 범위와 어긋남) waves·waveVersion을 null로 준다. 실패하면 toResponse의 대체 길을 의심한다
+    @Test
+    void 구성_저장_전_플레이는_지금_정의로_채운다() throws Exception {
+        String token = signupAndLogin("StagePlay24", "플레이24");
+        insertInProgress(accountId("StagePlay24"), 5);
+        current(token)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.waveVersion").value("w1-m1"))
+                .andExpect(jsonPath("$.data.waves.length()").value(5));
+
+        String otherToken = signupAndLogin("StagePlay25", "플레이25");
+        insertInProgress(accountId("StagePlay25"), 3);
+        current(otherToken)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.waveCount").value(3))
+                .andExpect(content().string(containsString("\"waves\":null")))
+                .andExpect(content().string(containsString("\"waveVersion\":null")));
+    }
+
+    // 확인(M24 DB 제약, V9): 구성과 버전은 함께 있거나 함께 없고, 구성은 JSON 배열이다.
+    // CHECK 위반(3819)은 JdbcTemplate에서 UncategorizedSQLException으로 오므로 부모 DataAccessException과 제약 이름으로 본다
+    @Test
+    void 웨이브_구성_칼럼은_DB가_지킨다() throws Exception {
+        signupAndLogin("StagePlay26", "플레이26");
+        long accountId = accountId("StagePlay26");
+        assertThatThrownBy(() -> insertWithPlan(accountId, "[]", null))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("ck_stage_play_wave_plan_pair");
+        assertThatThrownBy(() -> insertWithPlan(accountId, "{}", "w1-m1"))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("ck_stage_play_wave_plan_array");
+        insertWithPlan(accountId, "[]", "w1-m1");
+    }
+
     private ResultActions start(String token, String requestId, String stageId) throws Exception {
         return mockMvc.perform(post(PLAYS).header(HttpHeaders.AUTHORIZATION, bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -299,6 +405,30 @@ class StagePlayApiTest {
                                         start_request_id, started_at, expires_at, created_at, updated_at)
                 VALUES (?, ?, 'stage.01.01', 5, 0, 'IN_PROGRESS', ?, NOW(3), DATE_ADD(NOW(3), INTERVAL 1 DAY), NOW(3), NOW(3))
                 """, newId(), accountId, newId());
+    }
+
+    /** V9 전에 시작한 플레이처럼 구성 없이 넣는다(wave_plan·wave_version NULL) */
+    private void insertInProgress(long accountId, int waveCount) {
+        jdbc.update("""
+                INSERT INTO stage_play (stage_play_id, account_id, stage_id, wave_count, difficulty, status,
+                                        start_request_id, started_at, expires_at, created_at, updated_at)
+                VALUES (?, ?, 'stage.01.01', ?, 0, 'IN_PROGRESS', ?, NOW(3), DATE_ADD(NOW(3), INTERVAL 1 DAY), NOW(3), NOW(3))
+                """, newId(), accountId, waveCount, newId());
+    }
+
+    /** 끝난 플레이(진행 중 제약에 걸리지 않게 FAILED)로 구성 칼럼만 바꿔 넣는다 */
+    private void insertWithPlan(long accountId, String wavePlan, String waveVersion) {
+        jdbc.update("""
+                INSERT INTO stage_play (stage_play_id, account_id, stage_id, wave_count, wave_plan, wave_version, difficulty,
+                                        status, end_reason, start_request_id, started_at, expires_at, ended_at,
+                                        created_at, updated_at)
+                VALUES (?, ?, 'stage.01.01', 5, ?, ?, 0, 'FAILED', 'ABANDONED', ?, NOW(3), DATE_ADD(NOW(3), INTERVAL 1 DAY),
+                        NOW(3), NOW(3), NOW(3))
+                """, newId(), accountId, wavePlan, waveVersion, newId());
+    }
+
+    private static String body(ResultActions actions) throws Exception {
+        return actions.andReturn().getResponse().getContentAsString();
     }
 
     private static String idOf(ResultActions actions) throws Exception {
