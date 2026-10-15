@@ -44,6 +44,19 @@ class ApplicationSmokeTest {
     }
 
     /**
+     * 게임용 상태 확인 GET /health가 토큰 없이 200 UP이고, 하위 상태(components)는 보이지 않는가.
+     * 401이면 PublicPaths에 /health가 빠진 것, 404면 management.endpoint.health.group.game.additional-path,
+     * components가 보이면 group.game.show-details를 의심한다
+     */
+    @Test
+    void gameHealthIsUpWithoutDetails() throws Exception {
+        mockMvc.perform(get("/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.components").doesNotExist());
+    }
+
+    /**
      * info에 커밋(APP_COMMIT 없으면 local)과 빌드 버전이 실리는가.
      * 실패하면 exposure.include의 info, management.info.env.enabled, build.gradle의 buildInfo()를 의심한다.
      * IDE 실행기로 돌려 build만 실패하면 build-info.properties가 안 만들어진 것이니 Gradle로 돌린다
