@@ -69,7 +69,7 @@ class StageCatalogTest {
     // 확인(M24): 웨이브 정보 버전 = w{stage-waves 버전}-m{monsters 버전}, 몬스터 정의는 파일 순서
     @Test
     void 웨이브_버전과_몬스터() {
-        assertThat(catalog.waveVersion()).isEqualTo("w1-m1");
+        assertThat(catalog.waveVersion()).isEqualTo("w2-m1");
         assertThat(catalog.monsters()).extracting(MonsterDef::monsterId)
                 .containsExactly("monster.samurai", "monster.archer", "monster.boss.warrior");
         assertThat(catalog.monsters().get(2).boss()).isTrue();
@@ -100,9 +100,9 @@ class StageCatalogTest {
         assertThat(waves.get(2).enemies()).containsExactly(
                 new WaveEnemyDef("monster.samurai", 3, false, null, 2, 1.0),
                 new WaveEnemyDef("monster.archer", 1, false, null, 3, 1.0));
-        // 5웨이브(보스): 보스는 몬스터 정의의 boss true, 나머지는 골드 0으로 덮어씀
+        // 5웨이브(보스): 보스는 몬스터 정의의 boss true에 스폰 그룹 boss, 나머지는 골드 0으로 덮어씀
         assertThat(waves.get(4).enemies()).containsExactly(
-                new WaveEnemyDef("monster.boss.warrior", 1, true, null, 0, 1.0),
+                new WaveEnemyDef("monster.boss.warrior", 1, true, "boss", 0, 1.0),
                 new WaveEnemyDef("monster.samurai", 2, false, null, 0, 1.0),
                 new WaveEnemyDef("monster.archer", 1, false, null, 0, 1.0));
 
