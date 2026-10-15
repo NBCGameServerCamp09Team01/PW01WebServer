@@ -365,6 +365,9 @@ Gradle 9는 테스트 소스가 있는데 테스트가 하나도 발견되지 �
 | `spring.jackson.deserialization.fail-on-unknown-properties` | `true` | 요청 JSON에 모르는 필드가 있으면 400. Spring Boot는 이 기능을 기본으로 꺼서 모르는 필드를 무시하므로 다시 켰다(W30, 루트 공통 규칙) |
 | `management.endpoints.web.exposure.include` | `health,info,metrics,loggers` | Actuator 엔드포인트 중 이 네 가지만 웹에 연다. 처음(10/6)에는 health만이었다(10/13 바뀜) |
 | `management.endpoint.health.show-details` | `always` | health에 `components.db`·`components.redis`처럼 하위 상태를 보인다. 장애 때 어느 저장소인지 바로 본다. `prod`에서는 밖에 열지 않는 관리 포트 안이다 |
+| `management.endpoint.health.group.game.include` | `db,redis` | 게임용 상태 확인 묶음(`game`)이 보는 항목. DB·Redis가 모두 닿아야 UP(10/15) |
+| `management.endpoint.health.group.game.show-details` | `never` | `/health`에는 하위 상태를 보이지 않는다(밖에 열리는 주소라서). 하위 상태는 Actuator `health`로 본다 |
+| `management.endpoint.health.group.game.additional-path` | `server:/health` | 이 묶음을 **앱 포트**의 `GET /health`로도 연다. `prod`의 관리 포트(8081)를 밖에 열지 않아도 게임·로드 밸런서 밖에서 상태를 볼 수 있다. 경로는 한 단계만 된다. 공개 경로라 `PublicPaths`에도 있다(루트 `docs/contracts/README.md` "서버 상태 확인") |
 | `management.info.env.enabled` | `true` | `info.*` 설정 값을 `/actuator/info`에 싣는다 |
 | `info.app.commit` | `${APP_COMMIT:local}` | 이미지를 만든 커밋. 이미지 빌드 때 `APP_COMMIT`으로 넣고, 로컬·테스트는 `local`. 이름·버전·빌드 시각은 `build.gradle`의 `springBoot { buildInfo() }`가 넣는다 |
 
