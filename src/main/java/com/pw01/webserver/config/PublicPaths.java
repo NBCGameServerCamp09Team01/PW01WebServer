@@ -15,7 +15,8 @@ public final class PublicPaths {
             "/stages",               // ST1 스테이지 정의(stage-api.md)
             "/realtime",             // WebSocket 핸드셰이크(realtime-api.md). 인증은 핸드셰이크 쪽이 따로 함
             "/error",                // Spring 오류 경로
-            "/actuator/**",          // 상태 확인
+            "/health",               // 게임용 서버 상태 확인(README.md 재전송 규칙 "서버 상태 확인")
+            "/actuator/**",          // 운영 상태 확인(prod는 관리 포트에서만 열림)
             "/swagger-ui/**",        // API 보기(springdoc)
             "/swagger-ui.html",
             "/v3/api-docs/**"
