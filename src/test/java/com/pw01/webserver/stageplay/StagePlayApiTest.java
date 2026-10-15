@@ -279,7 +279,7 @@ class StagePlayApiTest {
         String token = signupAndLogin("StagePlay21", "플레이21");
         ResultActions started = start(token, newId(), STAGE_1)
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.waveVersion").value("w3-m2"))
+                .andExpect(jsonPath("$.data.waveVersion").value("w3-m2-d1"))
                 .andExpect(jsonPath("$.data.waves.length()").value(5))
                 .andExpect(jsonPath("$.data.waves[0].waveNumber").value(1))
                 .andExpect(jsonPath("$.data.waves[0].restSeconds").value(0.0))
@@ -288,6 +288,9 @@ class StagePlayApiTest {
                 .andExpect(jsonPath("$.data.waves[0].enemies[0].count").value(2))
                 .andExpect(jsonPath("$.data.waves[0].enemies[0].goldReward").value(3))
                 .andExpect(jsonPath("$.data.waves[0].enemies[0].goldDropChance").value(1.0))
+                // 난이도 0(기본): 배율 1.0(M9)
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].healthMultiplier").value(1.0))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].damageMultiplier").value(1.0))
                 .andExpect(jsonPath("$.data.waves[1].enemies[0].goldReward").value(2))
                 .andExpect(jsonPath("$.data.waves[4].bossWave").value(true))
                 .andExpect(jsonPath("$.data.waves[4].enemies[0].boss").value(true))
@@ -296,7 +299,7 @@ class StagePlayApiTest {
 
         String id = idOf(started);
         assertThat(jdbc.queryForObject("SELECT wave_version FROM stage_play WHERE stage_play_id = ?", String.class, id))
-                .isEqualTo("w3-m2");
+                .isEqualTo("w3-m2-d1");
         assertThat(jdbc.queryForObject("SELECT JSON_LENGTH(wave_plan) FROM stage_play WHERE stage_play_id = ?",
                 Integer.class, id)).isEqualTo(5);
     }
@@ -319,7 +322,7 @@ class StagePlayApiTest {
                 body(abandon(token, id).andExpect(status().isOk())));
         for (String other : bodies) {
             assertThat((Object) JsonPath.read(other, "$.data.waves")).isEqualTo(waves);
-            assertThat((String) JsonPath.read(other, "$.data.waveVersion")).isEqualTo("w3-m2");
+            assertThat((String) JsonPath.read(other, "$.data.waveVersion")).isEqualTo("w3-m2-d1");
         }
     }
 
@@ -348,7 +351,7 @@ class StagePlayApiTest {
         insertInProgress(accountId("StagePlay24"), 5);
         current(token)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.waveVersion").value("w3-m2"))
+                .andExpect(jsonPath("$.data.waveVersion").value("w3-m2-d1"))
                 .andExpect(jsonPath("$.data.waves.length()").value(5));
 
         String otherToken = signupAndLogin("StagePlay25", "플레이25");
@@ -373,12 +376,83 @@ class StagePlayApiTest {
         insertWithPlan(accountId, "[]", "w1-m1");
     }
 
+    // 확인(M9 난이도): 하드(2)로 시작하면 difficulties.json의 하드 배율(체력 1.5·공격력 1.3)이 적 줄마다 들어가 플레이에 고정되고,
+    // 마리 수 배율 1.0이라 수는 그대로다. 실패하면 StagePlayService가 stage.wavesFor(difficulty)를 쓰는지, StageCatalog.toEnemy를 의심한다
+    @Test
+    void 난이도로_시작하면_그_배율로_고정한다() throws Exception {
+        String token = signupAndLogin("StagePlay27", "플레이27");
+        String id = idOf(start(token, newId(), STAGE_1, 2)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.difficulty").value(2))
+                .andExpect(jsonPath("$.data.waveVersion").value("w3-m2-d1"))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].count").value(2))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].healthMultiplier").value(1.5))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].damageMultiplier").value(1.3))
+                .andExpect(jsonPath("$.data.waves[4].enemies[0].healthMultiplier").value(1.5)));
+
+        assertThat(jdbc.queryForObject("SELECT difficulty FROM stage_play WHERE stage_play_id = ?", Integer.class, id))
+                .isEqualTo(2);
+        assertThat(jdbc.queryForObject(
+                "SELECT JSON_EXTRACT(wave_plan, '$[0].enemies[0].healthMultiplier') FROM stage_play WHERE stage_play_id = ?",
+                Double.class, id)).isEqualTo(1.5);
+        // 이어하기(P2)도 같은 난이도·배율
+        current(token)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.difficulty").value(2))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].damageMultiplier").value(1.3));
+    }
+
+    // 확인(M9): difficulties.json에 없는 난이도는 400 VALIDATION_FAILED(errors에 difficulty), 같은 requestId로 다른 난이도는
+    // 409 IDEMPOTENCY_KEY_REUSED. 실패하면 StagePlayService.start의 난이도 확인과 재전송 비교를 의심한다
+    @Test
+    void 없는_난이도와_재전송_난이도_바뀜() throws Exception {
+        String token = signupAndLogin("StagePlay28", "플레이28");
+        start(token, newId(), STAGE_1, 9)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[0].field").value("difficulty"));
+
+        String requestId = newId();
+        start(token, requestId, STAGE_1, 1).andExpect(status().isCreated());
+        start(token, requestId, STAGE_1, 1).andExpect(status().isCreated());
+        start(token, requestId, STAGE_1, 2)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
+    }
+
+    // 확인(M9, 저장 전 구성): M9 전에 저장한 wave_plan의 적 줄에는 배율 칸이 없다. 응답은 1.0으로 채운다.
+    // 칸을 지워서 흉내 낸다. 실패하면 WaveEnemyDef의 null → 1.0 채우기를 의심한다(0이면 게임에서 적 체력 0)
+    @Test
+    void 배율_칸이_없는_옛_구성은_1로_채운다() throws Exception {
+        String token = signupAndLogin("StagePlay29", "플레이29");
+        String id = idOf(start(token, newId(), STAGE_1, 2).andExpect(status().isCreated()));
+        jdbc.update("""
+                UPDATE stage_play SET wave_plan = JSON_REMOVE(wave_plan, '$[0].enemies[0].healthMultiplier',
+                    '$[0].enemies[0].damageMultiplier')
+                WHERE stage_play_id = ?
+                """, id);
+
+        current(token)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].healthMultiplier").value(1.0))
+                .andExpect(jsonPath("$.data.waves[0].enemies[0].damageMultiplier").value(1.0))
+                .andExpect(jsonPath("$.data.waves[1].enemies[0].healthMultiplier").value(1.5));
+    }
+
     private ResultActions start(String token, String requestId, String stageId) throws Exception {
         return mockMvc.perform(post(PLAYS).header(HttpHeaders.AUTHORIZATION, bearer(token))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"requestId": "%s", "stageId": "%s"}
                         """.formatted(requestId, stageId)));
+    }
+
+    private ResultActions start(String token, String requestId, String stageId, int difficulty) throws Exception {
+        return mockMvc.perform(post(PLAYS).header(HttpHeaders.AUTHORIZATION, bearer(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"requestId": "%s", "stageId": "%s", "difficulty": %d}
+                        """.formatted(requestId, stageId, difficulty)));
     }
 
     private ResultActions current(String token) throws Exception {

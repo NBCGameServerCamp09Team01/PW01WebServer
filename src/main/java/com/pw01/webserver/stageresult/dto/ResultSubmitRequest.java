@@ -1,7 +1,6 @@
 package com.pw01.webserver.stageresult.dto;
 
 import com.pw01.webserver.stageplay.dto.StagePlayIds;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -25,8 +24,7 @@ public record ResultSubmitRequest(
         @Size(max = 64, message = "stageId는 64자 이하여야 합니다.")
         String stageId,
 
-        @Min(value = 0, message = "difficulty는 지금 0(난이도 조절 없음)만 받습니다.")
-        @Max(value = 0, message = "difficulty는 지금 0(난이도 조절 없음)만 받습니다.")
+        @Min(value = 0, message = "difficulty는 0 이상이어야 합니다.")
         Integer difficulty,
 
         @NotNull(message = "cleared가 필요합니다.")

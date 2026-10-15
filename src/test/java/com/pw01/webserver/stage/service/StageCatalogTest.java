@@ -69,7 +69,7 @@ class StageCatalogTest {
     // 확인(M24): 웨이브 정보 버전 = w{stage-waves 버전}-m{monsters 버전}, 몬스터 정의는 파일 순서
     @Test
     void 웨이브_버전과_몬스터() {
-        assertThat(catalog.waveVersion()).isEqualTo("w3-m2");
+        assertThat(catalog.waveVersion()).isEqualTo("w3-m2-d1");
         assertThat(catalog.monsters()).extracting(MonsterDef::monsterId)
                 .containsExactly("monster.samurai", "monster.archer", "monster.boss.warrior",
                         "monster.megaspikan.larvae", "monster.megaspikan.stalker", "monster.megaspikan.elite",
@@ -120,6 +120,38 @@ class StageCatalogTest {
                 .containsExactly(new WaveEnemyDef("monster.megaspikan.larvae", 5, false, null, 2, 1.0));
         assertThat(second.get(4).enemies().get(0))
                 .isEqualTo(new WaveEnemyDef("monster.boss.rampage", 1, true, "boss", 0, 1.0));
+    }
+
+    // 확인(M9): 실제 difficulties.json은 이지·노말·하드, 0은 배율 1.0, 받는 난이도는 0~2, 점수 배수는 모두 100
+    @Test
+    void 난이도_목록() {
+        assertThat(catalog.difficulties()).extracting(DifficultyDef::name).containsExactly("이지", "노말", "하드");
+        assertThat(catalog.difficulties().getFirst().multipliers()).isEqualTo(DifficultyMultipliers.NONE);
+        assertThat(catalog.hasDifficulty(2)).isTrue();
+        assertThat(catalog.hasDifficulty(3)).isFalse();
+        assertThat(catalog.hasDifficulty(-1)).isFalse();
+        assertThat(catalog.scoreMultiplierPercent(1)).isEqualTo(100);
+        assertThatThrownBy(() -> catalog.scoreMultiplierPercent(3)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // 확인(M9): 난이도별 구성. 난이도 0은 waves와 같고, 노말·하드는 같은 줄(몬스터 종류)·같은 수(수 배율 1.0)에
+    // 체력·공격력 배율만 다르다. 실패하면 StageCatalog.toStage·toEnemy, 실제 difficulties.json 값을 의심한다
+    @Test
+    void 난이도별_구성() {
+        StageDef stage = catalog.get("stage.01.01");
+        assertThat(stage.wavesFor(0)).isEqualTo(stage.waves());
+        assertThat(stage.wavesByDifficulty()).hasSize(3);
+        assertThat(stage.multipliers()).containsExactly(DifficultyMultipliers.NONE,
+                new DifficultyMultipliers(1.0, 1.2, 1.2, 1.0), new DifficultyMultipliers(1.0, 1.5, 1.3, 1.0));
+
+        WaveEnemyDef hardFirst = stage.wavesFor(2).getFirst().enemies().getFirst();
+        assertThat(hardFirst).isEqualTo(new WaveEnemyDef("monster.samurai", 2, false, null, 3, 1.0, 1.5, 1.3));
+        for (int difficulty = 0; difficulty < 3; difficulty++) {
+            assertThat(stage.wavesFor(difficulty))
+                    .extracting(wave -> wave.enemies().stream().map(WaveEnemyDef::monsterId).toList())
+                    .isEqualTo(stage.waves().stream()
+                            .map(wave -> wave.enemies().stream().map(WaveEnemyDef::monsterId).toList()).toList());
+        }
     }
 
 }
