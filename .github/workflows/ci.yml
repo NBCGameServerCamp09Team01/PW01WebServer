@@ -19,7 +19,9 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 실행 기계 판 고정: ubuntu-latest는 2026-10-19부터 Ubuntu 26으로 바뀐다(10/13 이미지 workflow 실행 화면의 GitHub 알림).
+    # PR 시험과 이미지 빌드가 같은 판이어야 "PR에서 통과 = 병합 뒤 이미지도 통과"가 성립한다. 세 workflow가 같은 판을 쓴다
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 

@@ -25,7 +25,11 @@ permissions:
   id-token: write
   contents: read
 
-# 배포가 겹치지 않게 차례로 돈다(중간 것을 취소하지 않음)
+# 동시 실행: 배포가 겹치면 서버 하나에 두 deploy.sh가 동시에 돌아 컨테이너가 꼬인다 → 한 group으로 묶는다.
+#   - GitHub는 같은 group에 "실행 중 1개 + 대기 1개"만 둔다(GitHub 문서 "Control the concurrency of workflows and jobs").
+#   - cancel-in-progress: false — 실행 중인 배포는 끊지 않는다(중간에 끊기면 서버가 반쯤 바뀐 채 남음).
+#   - 대기 중에 새 배포가 오면 대기하던 것은 취소된다 → 병합이 몰리면 **마지막 커밋만 배포**된다. 배포는 최신이 이기면 되므로 의도대로다
+#     (10/15 이전 주석 "차례로 돈다"는 틀렸음).
 concurrency:
   group: deploy-ec2-prod
   cancel-in-progress: false
