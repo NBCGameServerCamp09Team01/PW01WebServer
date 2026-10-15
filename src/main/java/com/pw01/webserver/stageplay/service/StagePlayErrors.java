@@ -47,7 +47,13 @@ public final class StagePlayErrors {
     /** 409: 같은 requestId로 다른 스테이지를 시작하려 함(게임 버그) */
     public static ConflictException requestIdReused() {
         return new ConflictException(CommonErrorCode.IDEMPOTENCY_KEY_REUSED,
-                "같은 requestId로 다른 스테이지를 시작할 수 없습니다.");
+                "같은 requestId로 다른 스테이지나 난이도를 시작할 수 없습니다.");
+    }
+
+    /** 400: difficulties.json에 없는 난이도로 시작함(M9). 형식 검증과 같은 코드 */
+    public static InvalidRequestException unknownDifficulty(int difficulty) {
+        return new InvalidRequestException(CommonErrorCode.VALIDATION_FAILED, "요청 값이 올바르지 않습니다.",
+                List.of(new FieldErrorDetail("difficulty", "받는 난이도가 아닙니다: " + difficulty)));
     }
 
     /** 400: 경로의 스테이지 플레이 ID를 UUID로 읽지 못함 */

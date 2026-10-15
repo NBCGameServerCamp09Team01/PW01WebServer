@@ -31,7 +31,7 @@ import java.util.Optional;
  * 스테이지 플레이 시작·현황(공유 초안 stage-play-api-draft-1009.md P1~P5).
  * 계정당 진행 중은 하나다. 마감이 지난 진행 중 플레이는 따로 도는 정리 작업 없이, 읽거나 새로 시작할 때 EXPIRED로 바꾼다.
  * 결과 제출은 결과 기능(stageresult 패키지)이 맡고, 결과가 저장될 때 StagePlay.endWithResult로 플레이를 끝낸다.
- * 웨이브 구성(M24, stage-play-api.md "웨이브 구성")은 시작 때 플레이에 고정하고, P1~P4 응답은 모두 그 값을 돌려준다.
+ * 웨이브 구성(M24, stage-play-api.md "웨이브 구성")은 시작 때 그 난이도(M9)를 반영해 플레이에 고정하고, P1~P4 응답은 모두 그 값을 돌려준다.
  */
 @Service
 @RequiredArgsConstructor
@@ -53,6 +53,10 @@ public class StagePlayService {
      * 그때는 새 트랜잭션에서 한 번 더 판단한다: 같은 requestId면 처음 플레이, 아니면 409 STAGE_PLAY_IN_PROGRESS.
      */
     public StagePlayResponse start(Long accountId, StagePlayStartRequest request) {
+        // 형식 검증 다음: difficulties.json에 있는 난이도만(없으면 400 VALIDATION_FAILED)
+        if (!stageCatalog.hasDifficulty(request.difficultyOrDefault())) {
+            throw StagePlayErrors.unknownDifficulty(request.difficultyOrDefault());
+        }
         String requestId = request.requestId().toLowerCase(Locale.ROOT);
         try {
             return transactionTemplate.execute(status -> startOnce(accountId, requestId, request));
@@ -64,10 +68,11 @@ public class StagePlayService {
     }
 
     private StagePlayResponse startOnce(Long accountId, String requestId, StagePlayStartRequest request) {
-        // 1. 같은 시작 요청을 다시 보냄(응답을 못 받음) → 처음 플레이. 다른 스테이지면 게임 버그
+        // 1. 같은 시작 요청을 다시 보냄(응답을 못 받음) → 처음 플레이. 다른 스테이지·난이도면 게임 버그
         Optional<StagePlay> sameRequest = stagePlayRepository.findByAccountIdAndStartRequestId(accountId, requestId);
         if (sameRequest.isPresent()) {
-            if (!sameRequest.get().getStageId().equals(request.stageId())) {
+            if (!sameRequest.get().getStageId().equals(request.stageId())
+                    || sameRequest.get().getDifficulty() != request.difficultyOrDefault()) {
                 throw StagePlayErrors.requestIdReused();
             }
             return toResponse(sameRequest.get());
@@ -87,12 +92,13 @@ public class StagePlayService {
         StageDef stage = stageProgressService.requireStartable(accountId, request.stageId());
 
         // 4. 발급. 웨이브 수와 구성·버전은 같은 정의(StageDef)에서 함께 저장한다(체크포인트 범위 = 구성 길이).
-        //    바로 flush해서 동시 시작의 유일 제약 위반을 여기서 드러낸다
+        //    구성은 그 난이도의 마리 수·배율을 반영한 것(M9). 바로 flush해서 동시 시작의 유일 제약 위반을 여기서 드러낸다
+        int difficulty = request.difficultyOrDefault();
         StagePlay play = stagePlayRepository.saveAndFlush(StagePlay.start(accountId, stage,
-                request.difficultyOrDefault(), requestId, now, stagePlayProperties.validity(),
-                wavePlanCodec.write(stage.waves()), stageCatalog.waveVersion()));
-        log.info("스테이지 플레이 시작 stagePlayId={} accountId={} stage={} waveVersion={}", play.getId(), accountId,
-                stage.stageId(), play.getWaveVersion());
+                difficulty, requestId, now, stagePlayProperties.validity(),
+                wavePlanCodec.write(stage.wavesFor(difficulty)), stageCatalog.waveVersion()));
+        log.info("스테이지 플레이 시작 stagePlayId={} accountId={} stage={} difficulty={} waveVersion={}", play.getId(),
+                accountId, stage.stageId(), difficulty, play.getWaveVersion());
         return toResponse(play);
     }
 
@@ -142,7 +148,8 @@ public class StagePlayService {
 
     /**
      * 플레이 → 응답. 웨이브 구성은 시작 때 저장한 값을 쓴다(그 사이 서버 정의가 바뀌어도 그대로).
-     * V9 전에 시작해 구성이 없는 플레이는 지금 정의로 채운다. 지금 웨이브 수가 그 플레이의 waveCount와 다르면
+     * M9 전에 저장한 구성의 적 줄에는 난이도 배율 칸이 없고, 읽을 때 1.0으로 채운다(WaveEnemyDef).
+     * V9 전에 시작해 구성이 없는 플레이(모두 난이도 0)는 지금 정의로 채운다. 지금 웨이브 수가 그 플레이의 waveCount와 다르면
      * 체크포인트 범위(waveCount)와 어긋난 구성을 주지 않도록 null로 둔다(게임은 판을 시작하지 않는다).
      */
     private StagePlayResponse toResponse(StagePlay play) {
