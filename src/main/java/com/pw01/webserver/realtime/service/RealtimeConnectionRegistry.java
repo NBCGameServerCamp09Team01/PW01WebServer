@@ -24,9 +24,13 @@ public class RealtimeConnectionRegistry {
         return Optional.ofNullable(previous).filter(p -> p != connection);
     }
 
-    /** 이 연결이 아직 등록돼 있을 때만 뺀다. 밀려난 이전 연결이 닫히면서 새 연결을 지우지 않게 한다 */
-    public void unregister(RealtimeConnection connection) {
-        connections.remove(connection.accountId(), connection);
+    /**
+     * 이 연결이 아직 등록돼 있을 때만 뺀다. 밀려난 이전 연결이 닫히면서 새 연결을 지우지 않게 한다.
+     *
+     * @return 이 연결을 뺐으면 true(이미 새 연결로 바뀌었으면 false)
+     */
+    public boolean unregister(RealtimeConnection connection) {
+        return connections.remove(connection.accountId(), connection);
     }
 
     public Optional<RealtimeConnection> find(Long accountId) {

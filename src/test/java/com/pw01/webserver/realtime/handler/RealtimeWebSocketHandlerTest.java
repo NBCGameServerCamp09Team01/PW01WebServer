@@ -4,6 +4,7 @@ import com.pw01.webserver.realtime.interceptor.RealtimeHandshakeInterceptor;
 import com.pw01.webserver.realtime.service.RealtimeCloseStatus;
 import com.pw01.webserver.realtime.service.RealtimeConnection;
 import com.pw01.webserver.realtime.service.RealtimeConnectionRegistry;
+import com.pw01.webserver.realtime.service.RealtimeEventPublisher;
 import com.pw01.webserver.realtime.service.RealtimeHeartbeat;
 import com.pw01.webserver.realtime.service.RealtimeNotifier;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +17,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -33,13 +35,39 @@ class RealtimeWebSocketHandlerTest {
 
     private RealtimeConnectionRegistry registry;
     private RealtimeNotifier notifier;
+    private RealtimeEventPublisher events;
     private RealtimeWebSocketHandler handler;
 
     @BeforeEach
     void setUp() {
         registry = new RealtimeConnectionRegistry();
         notifier = mock(RealtimeNotifier.class);
-        handler = new RealtimeWebSocketHandler(registry, mock(RealtimeHeartbeat.class), notifier);
+        events = mock(RealtimeEventPublisher.class);
+        handler = new RealtimeWebSocketHandler(registry, mock(RealtimeHeartbeat.class), notifier, events);
+    }
+
+    // 확인: 연결되면 연결 이벤트, 닫혀 목록에서 빠지면 끊김 이벤트(종료 코드와 함께). 실패하면 핸들러의 events 호출을 본다
+    @Test
+    void 연결과_끊김에_연결_이벤트를_낸다() throws Exception {
+        WebSocketSession first = socket("s1", TOKEN);
+        handler.afterConnectionEstablished(first);
+        verify(events).connected(ACCOUNT_ID);
+
+        handler.afterConnectionClosed(first, CloseStatus.NORMAL);
+
+        verify(events).disconnected(ACCOUNT_ID, 1000);
+    }
+
+    // 확인: 같은 세션의 새 연결로 바뀌어 닫힌 이전 연결은 끊김 이벤트를 내지 않는다(그 계정은 아직 붙어 있음)
+    @Test
+    void 새_연결로_바뀐_이전_연결이_닫히면_끊김_이벤트를_내지_않는다() throws Exception {
+        WebSocketSession first = socket("s1", TOKEN);
+        handler.afterConnectionEstablished(first);
+        handler.afterConnectionEstablished(socket("s2", TOKEN));
+
+        handler.afterConnectionClosed(first, RealtimeCloseStatus.CONNECTION_REPLACED);
+
+        verify(events, never()).disconnected(any(), anyInt());
     }
 
     // 확인: 같은 토큰으로 다시 연결하면(게임의 재연결) 이전 연결을 4000으로 닫고 새 연결을 남긴다

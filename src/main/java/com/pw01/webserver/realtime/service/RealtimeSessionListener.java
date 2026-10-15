@@ -27,6 +27,7 @@ public class RealtimeSessionListener {
     /**
      * 새 세션이 생겼다. 이 순간 이 계정에 붙어 있는 연결은 이전 세션의 것이므로(새 세션은 아직 연결 전)
      * "다른 곳 로그인"을 알리고 4001로 닫는다(realtime-api.md "같은 계정의 연결이 겹칠 때").
+     * 이전 연결이 다른 서버에 있을 수 있으므로 다른 서버들에도 "세션 다시 확인"을 넘긴다(realtime-api.md "서버 여러 대").
      */
     @EventListener
     public void onSessionIssued(SessionIssuedEvent event) {
@@ -34,6 +35,11 @@ public class RealtimeSessionListener {
             registry.find(event.accountId()).ifPresent(notifier::notifySessionReplaced);
         } catch (RuntimeException e) {
             log.warn("[Realtime] could not notify session replaced. accountId={}", event.accountId(), e);
+        }
+        try {
+            notifier.requestSessionCheck(event.accountId());
+        } catch (RuntimeException e) {
+            log.warn("[Realtime] could not request session check. accountId={}", event.accountId(), e);
         }
     }
 

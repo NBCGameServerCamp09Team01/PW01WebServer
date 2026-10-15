@@ -51,6 +51,24 @@ class RealtimeSessionListenerTest {
         verify(notifier).notifySessionReplaced(previous);
     }
 
+    // 확인: 이 서버에 연결이 없어도 다른 서버들에 "세션 다시 확인"을 넘긴다(이전 연결이 다른 서버에 있을 수 있음).
+    // 실패하면 onSessionIssued가 requestSessionCheck를 부르는지 본다(realtime-api.md "서버 여러 대")
+    @Test
+    void 새_로그인이면_다른_서버에도_세션_확인을_넘긴다() {
+        listener.onSessionIssued(new SessionIssuedEvent(ACCOUNT_ID));
+
+        verify(notifier, never()).notifySessionReplaced(any());
+        verify(notifier).requestSessionCheck(ACCOUNT_ID);
+    }
+
+    // 확인: 서버 사이로 넘기기가 실패해도 로그인을 막지 않는다
+    @Test
+    void 세션_확인_넘기기가_실패해도_로그인을_막지_않는다() {
+        doThrow(new IllegalStateException("redis down")).when(notifier).requestSessionCheck(any());
+
+        assertThatCode(() -> listener.onSessionIssued(new SessionIssuedEvent(ACCOUNT_ID))).doesNotThrowAnyException();
+    }
+
     // 확인: 알림이 실패해도 예외가 밖으로 나가지 않는다(로그인이 실패하면 안 됨)
     @Test
     void 알림이_실패해도_로그인을_막지_않는다() {

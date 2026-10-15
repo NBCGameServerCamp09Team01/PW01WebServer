@@ -33,15 +33,18 @@ public class RealtimeHeartbeat implements InitializingBean, DisposableBean {
     private final RealtimeNotifier notifier;
     private final AuthService authService;
     private final RealtimeProperties properties;
+    private final RealtimeEventPublisher events;
     private final Duration sessionTtl;
     private ThreadPoolTaskScheduler scheduler;
 
     public RealtimeHeartbeat(RealtimeConnectionRegistry registry, RealtimeNotifier notifier, AuthService authService,
-                             RealtimeProperties properties, AuthProperties authProperties) {
+                             RealtimeProperties properties, AuthProperties authProperties,
+                             RealtimeEventPublisher events) {
         this.registry = registry;
         this.notifier = notifier;
         this.authService = authService;
         this.properties = properties;
+        this.events = events;
         this.sessionTtl = authProperties.session().ttl();
     }
 
@@ -95,10 +98,24 @@ public class RealtimeHeartbeat implements InitializingBean, DisposableBean {
      */
     public void onPong(RealtimeConnection connection) {
         connection.markPongReceived();
-        try {
-            authService.extendSession(connection.token());
+        if (revalidate(connection)) {
             // 게임(UE)이 Ping에 Pong으로 답하는지 확인할 때 켠다: LOGGING_LEVEL_COM_PW01_WEBSERVER_REALTIME=DEBUG
             log.debug("[Realtime] pong received, session extended {}", connection);
+            events.alive(connection.accountId());
+        }
+    }
+
+    /**
+     * 이 연결의 세션을 다시 건다(Pong과 다른 서버의 "세션 다시 확인"이 같이 쓰는 판정).
+     * "다른 곳 로그인"이면 알리고 4001, 세션이 없으면 4002로 닫는다. Redis에 닿지 못하면 그대로 둔다.
+     * 새 세션의 연결이면 정상이라 닫지 않는다(다른 서버에서 확인 요청이 늦게 와도 새 연결은 안전).
+     *
+     * @return 세션이 정상이면 true
+     */
+    public boolean revalidate(RealtimeConnection connection) {
+        try {
+            authService.extendSession(connection.token());
+            return true;
         } catch (UnauthorizedException e) {
             if (AuthService.isSessionReplaced(e)) {
                 notifier.notifySessionReplaced(connection);
@@ -109,6 +126,7 @@ public class RealtimeHeartbeat implements InitializingBean, DisposableBean {
         } catch (DataAccessResourceFailureException e) {
             log.warn("[Realtime] session extend failed (store unavailable) {}", connection, e);
         }
+        return false;
     }
 
 }
