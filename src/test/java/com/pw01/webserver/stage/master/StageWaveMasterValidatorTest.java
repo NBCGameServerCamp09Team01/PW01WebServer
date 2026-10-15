@@ -5,11 +5,14 @@ import com.pw01.webserver.stage.master.MonsterMasterFile.MonsterEntry;
 import com.pw01.webserver.stage.master.StageMasterFile.RegionEntry;
 import com.pw01.webserver.stage.master.StageMasterFile.StageEntry;
 import com.pw01.webserver.stage.master.StageWaveMasterFile.EnemyEntry;
+import com.pw01.webserver.stage.master.StageWaveMasterFile.MultiplierOverride;
 import com.pw01.webserver.stage.master.StageWaveMasterFile.StageWavesEntry;
 import com.pw01.webserver.stage.master.StageWaveMasterFile.WaveEntry;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -149,6 +152,57 @@ class StageWaveMasterValidatorTest {
                 "stage-waves.json", "goldDropChance");
         assertFails(waves(wave(new EnemyEntry("monster.samurai", 1, " ", null, null, null))), MONSTERS,
                 "stage-waves.json", "spawnGroup");
+    }
+
+    // ---- 난이도(M9): W6 countByDifficulty, W7 difficultyMultipliers. 난이도는 0·1·2가 있다고 본다 ----
+
+    private static final Set<Integer> DIFFICULTIES = Set.of(0, 1, 2);
+
+    private static EnemyEntry byDifficulty(Map<String, Integer> counts) {
+        return new EnemyEntry("monster.samurai", 2, counts, null, null, null, null);
+    }
+
+    private static StageWaveMasterFile withOverride(Map<String, MultiplierOverride> overrides) {
+        return new StageWaveMasterFile(1, List.of(
+                new StageWavesEntry("stage.01.01", overrides,
+                        List.of(wave(enemy("monster.samurai", 2)), wave(enemy("monster.boss.warrior", 1)))),
+                new StageWavesEntry("stage.01.02", List.of(wave(enemy("monster.samurai", 3))))));
+    }
+
+    private static void assertDifficultyFails(StageWaveMasterFile waves, String part) {
+        assertThatThrownBy(() -> StageWaveMasterValidator.validate(STAGES, waves, MONSTERS, DIFFICULTIES))
+                .isInstanceOf(MasterDataException.class)
+                .hasMessageContaining("[master/stage-waves.json]")
+                .hasMessageContaining(part);
+    }
+
+    // 확인: 줄별 마리 수와 스테이지 배율 덮어쓰기가 함께 있는 정상 모양은 통과
+    @Test
+    void 난이도_칸_정상() {
+        StageWaveMasterFile ok = new StageWaveMasterFile(1, List.of(
+                new StageWavesEntry("stage.01.01", Map.of("2", new MultiplierOverride(null, 1.2, 1.2, null)),
+                        List.of(wave(byDifficulty(Map.of("1", 4, "2", 5))), wave(enemy("monster.boss.warrior", 1)))),
+                new StageWavesEntry("stage.01.02", List.of(wave(enemy("monster.samurai", 3))))));
+        assertThatCode(() -> StageWaveMasterValidator.validate(STAGES, ok, MONSTERS, DIFFICULTIES))
+                .doesNotThrowAnyException();
+    }
+
+    // W6: 값 0(난이도마다 몬스터 종류가 달라짐), 키 0, 숫자가 아닌 키, 없는 난이도
+    @Test
+    void 난이도별_마리_수() {
+        assertDifficultyFails(waves(wave(byDifficulty(Map.of("1", 0)))), "countByDifficulty 값");
+        assertDifficultyFails(waves(wave(byDifficulty(Map.of("0", 3)))), "0은 기본 값");
+        assertDifficultyFails(waves(wave(byDifficulty(Map.of("hard", 3)))), "숫자");
+        assertDifficultyFails(waves(wave(byDifficulty(Map.of("3", 3)))), "difficulties.json에 없는");
+    }
+
+    // W7: 이지(0) 덮어쓰기, 없는 난이도, 배율 0
+    @Test
+    void 스테이지_배율_덮어쓰기() {
+        assertDifficultyFails(withOverride(Map.of("0", new MultiplierOverride(null, 1.2, null, null))), "0은 기본 값");
+        assertDifficultyFails(withOverride(Map.of("3", new MultiplierOverride(null, 1.2, null, null))),
+                "difficulties.json에 없는");
+        assertDifficultyFails(withOverride(Map.of("2", new MultiplierOverride(null, 0.0, null, null))), "0보다");
     }
 
 }

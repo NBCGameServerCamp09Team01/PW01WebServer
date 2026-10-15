@@ -250,7 +250,7 @@ class RankingApiTest {
         list("/rankings/stages/" + STAGE_1, "&limit=51").andExpect(status().isBadRequest());
         list("/rankings/stages/" + STAGE_1, "&limit=abc").andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
-        list("/rankings/stages/" + STAGE_1, "&difficulty=1").andExpect(status().isBadRequest())
+        list("/rankings/stages/" + STAGE_1, "&difficulty=9").andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("difficulty"));
         list("/rankings/progress", "&period=weekly").andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("period"));
@@ -371,7 +371,7 @@ class RankingApiTest {
         RankingBoard board = RankingBoard.total(0, RankingPeriod.ALL, at);
         redis.delete(List.of(board.redisKey(), board.memberKey()));
         assertThat(items(list("/rankings/total", ""))).isEqualTo(body);
-        list("/rankings/total", "&difficulty=1").andExpect(status().isBadRequest())
+        list("/rankings/total", "&difficulty=9").andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("difficulty"));
     }
 

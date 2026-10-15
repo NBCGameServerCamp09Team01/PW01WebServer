@@ -22,7 +22,7 @@ public class StageController {
     @GetMapping
     public StageListResponse list() {
         return StageListResponse.from(stageCatalog.regions(), stageCatalog.totalCount(), stageCatalog.waveVersion(),
-                stageCatalog.monsters());
+                stageCatalog.difficulties(), stageCatalog.monsters());
     }
 
 }

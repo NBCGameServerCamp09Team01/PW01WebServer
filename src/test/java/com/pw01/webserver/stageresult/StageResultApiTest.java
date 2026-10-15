@@ -309,14 +309,14 @@ class StageResultApiTest {
                 .isEqualTo(count("SELECT stat_points FROM account_progress WHERE account_id = ?", accountId));
     }
 
-    // 확인: 플레이 시작 난이도는 0만(그 밖은 400), 토큰 없으면 401
+    // 확인: 플레이 시작 난이도는 difficulties.json에 있는 번호만(없는 9는 400, M9), 토큰 없으면 401
     @Test
     void 플레이_시작_형식() throws Exception {
         String token = signupAndLogin("ResultFlow10", "결과흐름10");
         mockMvc.perform(post("/accounts/me/stage-plays").header(HttpHeaders.AUTHORIZATION, bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"requestId": "%s", "stageId": "%s", "difficulty": 1}
+                                {"requestId": "%s", "stageId": "%s", "difficulty": 9}
                                 """.formatted(newId(), STAGE_1)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));

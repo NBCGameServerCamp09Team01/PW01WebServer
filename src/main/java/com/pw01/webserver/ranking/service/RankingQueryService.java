@@ -144,9 +144,10 @@ public class RankingQueryService {
 
     private int checkDifficulty(Integer difficulty, List<FieldErrorDetail> errors) {
         int value = difficulty == null ? 0 : difficulty;
-        if (!properties.difficulties().contains(value)) {
-            errors.add(new FieldErrorDetail("difficulty", "받는 난이도가 아닙니다: " + properties.difficulties()));
-            return properties.difficulties().getFirst();
+        if (!stageCatalog.hasDifficulty(value)) {
+            // 받는 난이도는 master/difficulties.json(M9). 오류를 모은 뒤 한 번에 400을 내므로 자리 값은 0
+            errors.add(new FieldErrorDetail("difficulty", "받는 난이도가 아닙니다: " + value));
+            return 0;
         }
         return value;
     }
