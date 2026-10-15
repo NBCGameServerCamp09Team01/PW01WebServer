@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "stages": [
     {
       "stageId": "stage.01.01",
@@ -29,23 +29,25 @@
       "stageId": "stage.01.02",
       "waves": [
         { "bossWave": false, "enemies": [
-          { "monsterId": "monster.samurai", "count": 3, "goldReward": 3 }
+          { "monsterId": "monster.megaspikan.larvae", "count": 5, "goldReward": 2 }
         ] },
         { "bossWave": false, "enemies": [
-          { "monsterId": "monster.samurai", "count": 4 }
+          { "monsterId": "monster.megaspikan.larvae", "count": 5 },
+          { "monsterId": "monster.megaspikan.stalker", "count": 2 }
         ] },
         { "bossWave": false, "enemies": [
-          { "monsterId": "monster.samurai", "count": 4 },
-          { "monsterId": "monster.archer", "count": 2 }
+          { "monsterId": "monster.megaspikan.larvae", "count": 4 },
+          { "monsterId": "monster.megaspikan.stalker", "count": 3 }
         ] },
         { "bossWave": false, "enemies": [
-          { "monsterId": "monster.samurai", "count": 6, "goldReward": 0 },
-          { "monsterId": "monster.archer", "count": 3, "goldReward": 0 }
+          { "monsterId": "monster.megaspikan.larvae", "count": 5, "goldReward": 0 },
+          { "monsterId": "monster.megaspikan.stalker", "count": 2, "goldReward": 0 },
+          { "monsterId": "monster.megaspikan.elite", "count": 2, "goldReward": 0 }
         ] },
         { "bossWave": true, "enemies": [
-          { "monsterId": "monster.boss.warrior", "count": 1 },
-          { "monsterId": "monster.samurai", "count": 3, "goldReward": 0 },
-          { "monsterId": "monster.archer", "count": 2, "goldReward": 0 }
+          { "monsterId": "monster.boss.rampage", "count": 1 },
+          { "monsterId": "monster.megaspikan.larvae", "count": 4, "goldReward": 0 },
+          { "monsterId": "monster.megaspikan.elite", "count": 1, "goldReward": 0 }
         ] }
       ]
     }
