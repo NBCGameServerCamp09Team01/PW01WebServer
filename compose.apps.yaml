@@ -1,0 +1,48 @@
+# 로컬 전용: 로드 밸런서(nginx) + 웹서버 둘. 배포(ALB 뒤 EC2 두 대)와 같은 모양을 PC에서 만든다. 운영 설정 아님
+# compose.yaml(MySQL·Redis) 위에 겹쳐 쓴다:
+#   docker compose -f compose.yaml -f compose.apps.yaml up -d --build
+#   게임·Postman → http://localhost:8080(로드 밸런서), 서버를 고를 때만 8081(app-a)·8082(app-b)
+# 비밀번호는 .env에서 읽는다(값을 이 파일에 쓰지 않는다). 끄기: ... stop  (down -v는 데이터를 지우므로 쓰지 않는다)
+# 자세한 쓰는 법: README "로컬 로드 밸런서 환경", 서버 사이 전달: 루트 docs/flows/realtime-relay.md
+
+x-app: &app
+  image: pw01-webserver:local
+  build:
+    context: .
+    args:
+      APP_COMMIT: local
+  restart: "no"
+  mem_limit: 768m
+  depends_on:
+    mysql: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  environment:
+    SPRING_PROFILES_ACTIVE: local
+    # local 프로필은 DB·Redis를 127.0.0.1로 본다. 컨테이너 안의 127.0.0.1은 자기 자신이라 compose 서비스 이름으로 덮는다.
+    # .env의 MYSQL_PORT·REDIS_PORT는 PC 쪽 포트이므로 컨테이너끼리 쓰는 3306·6379로 통째로 덮는다
+    SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-pw01}
+    MYSQL_USER: ${MYSQL_USER:-pw01}
+    MYSQL_PASSWORD: ${MYSQL_PASSWORD:?.env 에 MYSQL_PASSWORD 를 설정하세요}
+    SPRING_DATA_REDIS_HOST: redis
+    SPRING_DATA_REDIS_PORT: "6379"
+    REDIS_PASSWORD: ${REDIS_PASSWORD:?.env 에 REDIS_PASSWORD 를 설정하세요}
+
+services:
+  app-a:
+    <<: *app
+    ports:
+      - "127.0.0.1:8081:8080"
+
+  app-b:
+    <<: *app
+    ports:
+      - "127.0.0.1:8082:8080"
+
+  lb:
+    image: nginx:1.27.5-alpine
+    restart: "no"
+    depends_on: [app-a, app-b]
+    volumes:
+      - ./local/lb/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8080:80"
