@@ -69,10 +69,13 @@ class StageCatalogTest {
     // 확인(M24): 웨이브 정보 버전 = w{stage-waves 버전}-m{monsters 버전}, 몬스터 정의는 파일 순서
     @Test
     void 웨이브_버전과_몬스터() {
-        assertThat(catalog.waveVersion()).isEqualTo("w1-m1");
+        assertThat(catalog.waveVersion()).isEqualTo("w2-m2");
         assertThat(catalog.monsters()).extracting(MonsterDef::monsterId)
-                .containsExactly("monster.samurai", "monster.archer", "monster.boss.warrior");
-        assertThat(catalog.monsters().get(2).boss()).isTrue();
+                .containsExactly("monster.samurai", "monster.archer", "monster.boss.warrior",
+                        "monster.megaspikan.larvae", "monster.megaspikan.stalker", "monster.megaspikan.elite",
+                        "monster.boss.rampage");
+        assertThat(catalog.monsters()).extracting(MonsterDef::boss)
+                .containsExactly(false, false, true, false, false, false, true);
     }
 
     // 확인(M24): 모든 스테이지의 웨이브 수 = waveCount, 번호는 1부터, 마지막만 보스 웨이브
@@ -106,10 +109,17 @@ class StageCatalogTest {
                 new WaveEnemyDef("monster.samurai", 2, false, null, 0, 1.0),
                 new WaveEnemyDef("monster.archer", 1, false, null, 0, 1.0));
 
-        // stage.01.02는 마리 수만 다르다(3 / 4 / 4+2 / 6+3 / 1+3+2)
-        assertThat(catalog.get("stage.01.02").waves())
+        // stage.01.02는 비인간 몬스터(메가스피칸)만: 유충 5 / 유충 5 + 잠복 2 / 유충 4 + 잠복 3 /
+        // 유충 5 + 잠복 2 + 정예 2 / 램페이지 + 유충 4 + 정예 1
+        List<WaveDef> second = catalog.get("stage.01.02").waves();
+        assertThat(second)
                 .extracting(wave -> wave.enemies().stream().map(WaveEnemyDef::count).toList())
-                .containsExactly(List.of(3), List.of(4), List.of(4, 2), List.of(6, 3), List.of(1, 3, 2));
+                .containsExactly(List.of(5), List.of(5, 2), List.of(4, 3), List.of(5, 2, 2), List.of(1, 4, 1));
+        // 1웨이브 유충은 골드 2로 덮어씀(몬스터 기본 1), 보스 웨이브 첫 줄은 램페이지(보스)
+        assertThat(second.get(0).enemies())
+                .containsExactly(new WaveEnemyDef("monster.megaspikan.larvae", 5, false, null, 2, 1.0));
+        assertThat(second.get(4).enemies().get(0))
+                .isEqualTo(new WaveEnemyDef("monster.boss.rampage", 1, true, null, 0, 1.0));
     }
 
 }
