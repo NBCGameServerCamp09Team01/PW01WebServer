@@ -99,6 +99,30 @@ docker run --rm --network pw01-local_default --env-file .env.docker -p 8080:8080
 - `.env.docker`는 견본에서 만듭니다: `copy .env.docker.example .env.docker` → `DB_PASSWORD`·`REDIS_PASSWORD`에 `.env`와 같은 값(`MYSQL_PASSWORD`·`REDIS_PASSWORD`)을 넣습니다. `.env.docker`는 커밋되지 않습니다.
 - 실행 중인 IntelliJ 앱과 8080이 겹치면 먼저 멈춥니다.
 
+### 7. 로컬 로드 밸런서 환경 (선택 — 서버 두 대 동작을 볼 때)
+
+배포는 로드 밸런서 뒤에 서버가 여러 대입니다. 실시간 메시지가 다른 서버에 붙은 사람에게도 가는지(서버 사이 전달, 루트 `docs/flows/realtime-relay.md`) 보려면 PC에서 같은 모양을 띄웁니다. `compose.yaml`은 그대로 두고 `compose.apps.yaml`을 겹쳐 씁니다.
+
+```bat
+docker compose -f compose.yaml -f compose.apps.yaml up -d --build
+docker compose -f compose.yaml -f compose.apps.yaml ps
+curl.exe -si http://localhost:8080/health
+```
+
+| 주소 | 무엇 |
+|---|---|
+| `http://localhost:8080` | 로드 밸런서(nginx, 라운드 로빈·WebSocket·유휴 120초). 게임 PIE 기본 주소 그대로 |
+| `http://localhost:8081` | app-a 바로(서버를 고를 때) |
+| `http://localhost:8082` | app-b 바로 |
+
+- 응답 헤더 `X-Upstream`이 두 앱을 번갈아 가리키면 정상입니다(로컬 nginx만 붙이는 헤더).
+- 앱은 `local` 프로필로 뜨고 `.env`의 `MYSQL_PASSWORD`·`REDIS_PASSWORD`를 씁니다(따로 만들 파일 없음). 상태 확인은 `/health`, `/actuator/health` 모두 앱 포트입니다.
+- 로그: `docker compose -f compose.yaml -f compose.apps.yaml logs -f app-a app-b`. 요청 하나는 `… logs app-a app-b | findstr <requestId>`. 뜰 때 찍히는 `[Relay] serverId=…`로 어느 앱인지 압니다.
+- 서버를 정해 붙기: 게임 Standalone 실행 인자 `-ServerUrl=http://localhost:8082`, Postman WebSocket `ws://localhost:8082/realtime`(헤더 `Authorization: Bearer <토큰>`).
+- 앱 하나 멈춤 시험: `… stop app-b` → 요청이 모두 app-a로 → `… start app-b` → 뜬 뒤 10초쯤 지나면 다시 번갈아 갑니다(nginx가 실패한 앱을 잠깐 빼 두었다가 다시 시도). nginx를 다시 띄울 때는 두 앱이 떠 있어야 합니다.
+- 코드를 고쳤으면 첫 줄을 다시(`--build`). 끝낼 때는 `… stop`(`down -v`는 데이터를 지웁니다).
+- 4번의 IntelliJ 앱과 8080이 겹치므로 먼저 멈춥니다. PC 메모리 약 2.5~3GB를 씁니다.
+
 ## 구조
 
 ```

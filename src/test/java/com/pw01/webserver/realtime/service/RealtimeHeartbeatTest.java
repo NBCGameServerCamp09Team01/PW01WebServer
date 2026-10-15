@@ -5,6 +5,7 @@ import com.pw01.webserver.auth.service.AuthService;
 import com.pw01.webserver.common.error.UnauthorizedException;
 import com.pw01.webserver.config.AuthProperties;
 import com.pw01.webserver.config.RealtimeProperties;
+import com.pw01.webserver.realtime.repository.RealtimeRelayPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -41,6 +42,7 @@ class RealtimeHeartbeatTest {
     private RealtimeConnectionRegistry registry;
     private RealtimeHeartbeat heartbeat;
     private RealtimeConnection connection;
+    private RealtimeEventPublisher events;
 
     @BeforeEach
     void setUp() {
@@ -49,9 +51,12 @@ class RealtimeHeartbeatTest {
         when(socket.getId()).thenReturn("s1");
         authService = mock(AuthService.class);
         registry = new RealtimeConnectionRegistry();
-        RealtimeNotifier notifier = new RealtimeNotifier(registry, JsonMapper.builder().build());
+        JsonMapper jsonMapper = JsonMapper.builder().build();
+        RealtimeNotifier notifier = new RealtimeNotifier(new RealtimeLocalDelivery(registry, jsonMapper),
+                mock(RealtimeRelayPublisher.class), RealtimeNotifierTest.relayProperties(), jsonMapper);
+        events = mock(RealtimeEventPublisher.class);
         heartbeat = new RealtimeHeartbeat(registry, notifier, authService,
-                new RealtimeProperties(Duration.ofSeconds(60), 3), authProperties(Duration.ofMinutes(10)));
+                new RealtimeProperties(Duration.ofSeconds(60), 3), authProperties(Duration.ofMinutes(10)), events);
         connection = new RealtimeConnection(socket, ACCOUNT_ID, TOKEN);
         registry.register(connection);
     }
@@ -81,6 +86,21 @@ class RealtimeHeartbeatTest {
 
         verify(authService).extendSession(TOKEN);
         assertThat(connection.missedPongs()).isZero();
+        verify(events).alive(ACCOUNT_ID);
+    }
+
+    // 확인: 다른 서버의 "세션 다시 확인"(revalidate)도 Pong과 같은 판정이다. 새 세션의 연결이면 닫지 않고, 이전 세션이면 4001
+    // 실패하면 RealtimeHeartbeat.revalidate와 onPong이 판정을 나눠 쓰는지 본다
+    @Test
+    void 세션_다시_확인은_새_세션이면_그대로_이전_세션이면_4001() throws Exception {
+        when(authService.extendSession(TOKEN)).thenReturn(new AuthenticatedSession(TOKEN, ACCOUNT_ID, Instant.now()));
+        assertThat(heartbeat.revalidate(connection)).isTrue();
+        verify(socket, never()).close(any(CloseStatus.class));
+
+        when(authService.extendSession(TOKEN)).thenThrow(new UnauthorizedException("AUTH_SESSION_REPLACED", "다른 곳"));
+        assertThat(heartbeat.revalidate(connection)).isFalse();
+        verify(socket).close(RealtimeCloseStatus.SESSION_REPLACED);
+        verify(events, never()).alive(any());
     }
 
     // 확인: 연장 결과가 "다른 곳 로그인"이면 SESSION_REPLACED 메시지를 보내고 4001로 닫는다
@@ -120,7 +140,7 @@ class RealtimeHeartbeatTest {
     @Test
     void 값의_관계가_틀리면_뜨지_않는다() {
         RealtimeHeartbeat wrong = new RealtimeHeartbeat(registry, mock(RealtimeNotifier.class), authService,
-                new RealtimeProperties(Duration.ofMinutes(5), 2), authProperties(Duration.ofMinutes(10)));
+                new RealtimeProperties(Duration.ofMinutes(5), 2), authProperties(Duration.ofMinutes(10)), events);
 
         assertThatThrownBy(wrong::afterPropertiesSet).isInstanceOf(IllegalStateException.class);
     }

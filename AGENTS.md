@@ -54,7 +54,8 @@
 - 스키마는 Flyway 마이그레이션(`src/main/resources/db/migration/V{번호}__{설명}.sql`)으로만 바꿉니다(`ddl-auto=validate`). `dev`에 병합된 마이그레이션 파일은 고치지 않고 새 파일을 더합니다.
 - 시간: JVM·DB·JDBC 모두 UTC입니다. 엔티티·DTO의 시각은 `Instant`, JSON은 `Z`가 붙은 ISO-8601(밀리초까지)입니다.
 - 설정: `application.properties`(공통) + 프로필 `local`(각자 PC, compose. 프로필을 정하지 않으면 기본) · `test`(테스트) · `prod`(배포). 테스트 클래스에는 `test` 프로필을 붙입니다.
-- WebSocket(S7 실시간 연결)은 `realtime` 패키지와 `config/RealtimeConfig`에 있습니다(루트 `docs/contracts/realtime-api.md`). 다른 기능이 게임에 알릴 때는 `RealtimeNotifier.send`만 부르고, 메시지 종류는 명세 "메시지 종류" 표에 먼저 적습니다. `@EnableScheduling`은 켜지 않았습니다(heartbeat는 전용 스케줄러).
+- WebSocket(S7 실시간 연결)은 `realtime` 패키지와 `config/RealtimeConfig`에 있습니다(루트 `docs/contracts/realtime-api.md`). 다른 기능이 게임에 알릴 때는 `RealtimeNotifier`의 보내기 넷(`send`·`sendToAccounts`·`sendToGuild`·`sendToAll`)만 부르고(DB 커밋 뒤, 길드에 관한 메시지는 `sendToGuild`), 메시지 종류는 명세 "메시지 종류" 표에 먼저 적습니다. 받는 사람이 다른 서버에 붙어 있어도 Redis Pub/Sub으로 넘어갑니다(`config/RealtimeRelayConfig`, 루트 `redis-keys.md` "실시간 서버 사이 전달") — Pub/Sub 채널을 직접 쓰지 않습니다. 연결 변화가 필요하면 `realtime/event`의 이벤트를 받습니다. `@EnableScheduling`은 켜지 않았습니다(heartbeat는 전용 스케줄러).
+- 채팅·길드(M23) 두 모듈 사이 약속은 `common/chat`(`ChatMessage`, `GuildDirectory`, `GuildChatHistory`, `GlobalChatHistory`)에 있습니다. 소셜 모듈이 길드 쪽을 구현하고 채팅 모듈이 부릅니다. 전체 채팅은 지금 저장하지 않습니다(`NoStoreGlobalChatHistory`, 저장 구현을 만들면 `@Primary`). 시험용 가짜 구현은 `src/test`의 `common/chat/InMemory*`입니다.
 
 ## 테스트
 
@@ -71,4 +72,5 @@
 ## 로컬 인프라
 
 - `compose.yaml`은 로컬 개발 전용입니다. 운영 설정을 넣지 않습니다.
+- `compose.apps.yaml` + `local/lb/nginx.conf`는 로컬 로드 밸런서 환경(nginx + 앱 둘)입니다. 이것도 로컬 전용이며 운영 설정을 넣지 않습니다(README 7번).
 - `docker compose down -v`처럼 데이터를 지우는 명령은 사용자 확인 후 실행합니다.

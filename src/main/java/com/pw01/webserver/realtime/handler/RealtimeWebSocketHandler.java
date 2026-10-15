@@ -4,6 +4,7 @@ import com.pw01.webserver.realtime.interceptor.RealtimeHandshakeInterceptor;
 import com.pw01.webserver.realtime.service.RealtimeCloseStatus;
 import com.pw01.webserver.realtime.service.RealtimeConnection;
 import com.pw01.webserver.realtime.service.RealtimeConnectionRegistry;
+import com.pw01.webserver.realtime.service.RealtimeEventPublisher;
 import com.pw01.webserver.realtime.service.RealtimeHeartbeat;
 import com.pw01.webserver.realtime.service.RealtimeNotifier;
 import org.slf4j.Logger;
@@ -28,12 +29,14 @@ public class RealtimeWebSocketHandler extends AbstractWebSocketHandler {
     private final RealtimeConnectionRegistry registry;
     private final RealtimeHeartbeat heartbeat;
     private final RealtimeNotifier notifier;
+    private final RealtimeEventPublisher events;
 
     public RealtimeWebSocketHandler(RealtimeConnectionRegistry registry, RealtimeHeartbeat heartbeat,
-                                    RealtimeNotifier notifier) {
+                                    RealtimeNotifier notifier, RealtimeEventPublisher events) {
         this.registry = registry;
         this.heartbeat = heartbeat;
         this.notifier = notifier;
+        this.events = events;
     }
 
     @Override
@@ -52,6 +55,7 @@ public class RealtimeWebSocketHandler extends AbstractWebSocketHandler {
                 notifier.notifySessionReplaced(previous);
             }
         });
+        events.connected(accountId);
     }
 
     @Override
@@ -76,8 +80,12 @@ public class RealtimeWebSocketHandler extends AbstractWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         RealtimeConnection connection = connectionOf(session);
         if (connection != null) {
-            registry.unregister(connection);
+            boolean removed = registry.unregister(connection);
             log.info("[Realtime] closed {} status={}", connection, status);
+            // 같은 세션의 새 연결로 바뀌어 닫힌 이전 연결이면 그 계정은 아직 붙어 있으므로 끊김을 내지 않는다
+            if (removed) {
+                events.disconnected(connection.accountId(), status.getCode());
+            }
         }
     }
 

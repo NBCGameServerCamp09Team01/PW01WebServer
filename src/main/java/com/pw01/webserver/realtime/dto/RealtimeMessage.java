@@ -2,6 +2,8 @@ package com.pw01.webserver.realtime.dto;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,9 +22,12 @@ public record RealtimeMessage(String type, String id, Instant sentAt, Map<String
         return of(type, Map.of());
     }
 
+    /**
+     * data의 값은 null이어도 된다(예: 전체 채팅의 guildId). 칸 순서는 넣은 순서대로 JSON에 나간다.
+     */
     public static RealtimeMessage of(RealtimeMessageType type, Map<String, Object> data) {
         return new RealtimeMessage(type.name(), UUID.randomUUID().toString(),
-                Instant.now().truncatedTo(ChronoUnit.MILLIS), Map.copyOf(data));
+                Instant.now().truncatedTo(ChronoUnit.MILLIS), Collections.unmodifiableMap(new LinkedHashMap<>(data)));
     }
 
 }
