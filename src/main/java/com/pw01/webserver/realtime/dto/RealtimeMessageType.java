@@ -25,7 +25,7 @@ public enum RealtimeMessageType {
     /** M23 길드(v1.4): 탈퇴·추방. data는 {guildId, accountId, memberCount, reason(LEFT·KICKED)}. 받는 사람: 남은 길드원 + 나간 사람 */
     GUILD_MEMBER_LEFT,
 
-    /** 초안·선택(M23 길드 Lv2): 길드원 접속·끊김. data는 {guildId, accountId, online}. sendToGuild */
+    /** M23 길드 Lv2(v1.5): 길드원 접속·끊김(상태가 바뀔 때만). data는 {guildId, accountId, online}. 받는 사람: 본인을 뺀 길드원. GuildPresenceNotifier */
     PRESENCE_CHANGED,
 
     /** M23 길드(v1.4): 해체. data는 {guildId}. 받는 사람: 해체 직전 길드원 + 그 길드 신청자 */

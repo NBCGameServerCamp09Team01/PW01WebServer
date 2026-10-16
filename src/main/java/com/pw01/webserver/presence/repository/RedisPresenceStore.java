@@ -31,9 +31,13 @@ public class RedisPresenceStore {
         this.ttl = properties.ttl();
     }
 
-    /** 접속함(연결·Pong): 이 서버 번호로 덮어쓰고 수명을 다시 채운다 */
-    public void markOnline(Long accountId, String serverId) {
-        redis.opsForValue().set(key(accountId), serverId, ttl);
+    /**
+     * 접속함(연결·Pong): 이 서버 번호로 덮어쓰고 수명을 다시 채운다. 덮어쓰기 전 값도 같은 명령으로 받는다(SET … GET EX).
+     *
+     * @return 덮어쓰기 전에 키가 없었으면 true(접속하지 않은 상태에서 접속으로 바뀜)
+     */
+    public boolean markOnline(Long accountId, String serverId) {
+        return redis.opsForValue().setGet(key(accountId), serverId, ttl) == null;
     }
 
     /**
