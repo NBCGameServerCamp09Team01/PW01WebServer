@@ -55,7 +55,7 @@
 - 시간: JVM·DB·JDBC 모두 UTC입니다. 엔티티·DTO의 시각은 `Instant`, JSON은 `Z`가 붙은 ISO-8601(밀리초까지)입니다.
 - 설정: `application.properties`(공통) + 프로필 `local`(각자 PC, compose. 프로필을 정하지 않으면 기본) · `test`(테스트) · `prod`(배포). 테스트 클래스에는 `test` 프로필을 붙입니다.
 - WebSocket(S7 실시간 연결)은 `realtime` 패키지와 `config/RealtimeConfig`에 있습니다(루트 `docs/contracts/realtime-api.md`). 다른 기능이 게임에 알릴 때는 `RealtimeNotifier`의 보내기 넷(`send`·`sendToAccounts`·`sendToGuild`·`sendToAll`)만 부르고(DB 커밋 뒤, 길드에 관한 메시지는 `sendToGuild`), 메시지 종류는 명세 "메시지 종류" 표에 먼저 적습니다. 받는 사람이 다른 서버에 붙어 있어도 Redis Pub/Sub으로 넘어갑니다(`config/RealtimeRelayConfig`, 루트 `redis-keys.md` "실시간 서버 사이 전달") — Pub/Sub 채널을 직접 쓰지 않습니다. 연결 변화가 필요하면 `realtime/event`의 이벤트를 받습니다. `@EnableScheduling`은 켜지 않았습니다(heartbeat는 전용 스케줄러).
-- 채팅·길드(M23) 두 모듈 사이 약속은 `common/chat`(`ChatMessage`, `GuildDirectory`, `GuildChatHistory`, `GlobalChatHistory`)에 있습니다. 소셜 모듈이 길드 쪽을 구현하고 채팅 모듈이 부릅니다. 전체 채팅은 지금 저장하지 않습니다(`NoStoreGlobalChatHistory`, 저장 구현을 만들면 `@Primary`). 시험용 가짜 구현은 `src/test`의 `common/chat/InMemory*`입니다.
+- 채팅·길드(M23) 두 모듈 사이 약속은 `common/chat`(`ChatMessage`, `GuildDirectory`, `GuildChatHistory`, `GlobalChatHistory`)에 있습니다. 소셜(길드) 모듈은 `GuildDirectory`를 구현하고 길드 생애 이벤트(`GuildMemberJoinedEvent`·`GuildMemberLeftEvent`·`GuildDisbandedEvent`, 받는 쪽은 커밋 뒤)를 냅니다. 전체·길드 채팅의 저장·불러오기·보내기는 채팅 모듈입니다(`GuildChatHistory` 구현 포함, 해체 이벤트로 그 길드 채팅을 지움). 두 모듈이 같이 쓰는 약속을 바꿀 때는 작은 PR로 먼저 넣고 상대 담당이 리뷰합니다. 전체 채팅은 지금 저장하지 않습니다(`NoStoreGlobalChatHistory`, 저장 구현을 만들면 `@Primary`). 시험용 가짜 구현은 `src/test`의 `common/chat/InMemory*`입니다.
 
 ## 테스트
 
