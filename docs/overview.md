@@ -27,7 +27,7 @@ com.pw01.webserver
 ├─ common/entity   BaseEntity(생성·수정 시각, UTC)
 ├─ common/error    ErrorResponse, CommonErrorCode, 상태별 예외, GlobalExceptionHandler
 ├─ common/master   MasterDataLoader(resources/master/*.json을 기동 때 읽음, 틀리면 기동 실패. SF-7)
-├─ common/chat     M23 채팅·길드 두 모듈 사이 약속: ChatMessage·ChatScope·ChatHistoryPage, GuildDirectory·GuildChatHistory(소셜이 구현),
+├─ common/chat     M23 채팅·길드 두 모듈 사이 약속: ChatMessage·ChatScope·ChatHistoryPage, GuildDirectory(소셜이 구현)·GuildChatHistory(채팅이 구현),
 │                  GlobalChatHistory(지금은 NoStoreGlobalChatHistory — 전체 채팅 저장 안 함)
 ├─ config          JpaAuditingConfig, RealtimeConfig(/realtime), RealtimeRelayConfig(서버 사이 전달 구독)
 ├─ realtime/       S7 실시간 연결. 보내기 입구 RealtimeNotifier(send·sendToAccounts·sendToGuild·sendToAll) → 이 서버 연결(RealtimeLocalDelivery)
@@ -35,6 +35,9 @@ com.pw01.webserver
 ├─ stage/          지역·스테이지 정보(master/stages.json), 웨이브 구성·몬스터 정의(stage-waves.json·monsters.json, M24), 난이도(difficulties.json, M9), ST1 GET /stages와 계정별 클리어 진행(ST2 GET /accounts/me/stages)
 ├─ ranking/        랭킹(스테이지·지역·전체 총합·진행, 전체·주간). 원천 MySQL 표 5개(V8) + Redis 보드 사본(pw01:rank:*, rank_*.lua).
 │                  JPA 엔티티 없이 JdbcClient. 결과 저장(StageResultService)이 같은 트랜잭션에서 RankingRecordService.recordClear를 부른다. 결정 기록 decisions/0002
+├─ chat/           M23 채팅(루트 chat-api.md CH1·CH2·CH3). ChatService: 글 규칙(ChatTextPolicy) → 한 번만 반영 → 횟수 제한·도배 쉬기(RedisChatRateLimiter, chat_rate.lua)
+│                  → 길드 채팅은 guild_chat_message(V11, GuildChatHistoryImpl)에 저장하고 커밋 뒤 sendToGuild, 전체는 저장 없이 sendToAll
+│                  지우기: 해체 커밋 뒤 ChatDisbandListener, 하루 한 번 3일 지난 줄 GuildChatCleanupJob(전용 스케줄러, 1000줄씩 새 트랜잭션)
 └─ <기능>/          controller · service · repository · entity · dto  (지금은 account·auth)
 ```
 
