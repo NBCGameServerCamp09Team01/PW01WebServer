@@ -22,6 +22,14 @@ public interface AccountGuildRepository extends JpaRepository<AccountGuild, Long
     @Query("SELECT a FROM AccountGuild a WHERE a.accountId = :accountId")
     Optional<AccountGuild> findForApplyById(@Param("accountId") Long accountId);
 
+    /**
+     * 잠그며 읽기(FOR UPDATE). 잠금 읽기는 트랜잭션 스냅숏이 아니라 가장 최근에 확정된 줄을 본다.
+     * insertIfAbsent 바로 뒤에 쓴다: 다른 트랜잭션이 먼저 넣은 줄은 보통 읽기(스냅숏)로는 안 보인다(REPEATABLE READ).
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM AccountGuild a WHERE a.accountId = :accountId")
+    Optional<AccountGuild> findLockedById(@Param("accountId") Long accountId);
+
     /** 길드원 줄(길드장 먼저 세우기는 서비스가 한다). 인덱스 idx_account_guild_guild_joined 범위 읽기 */
     List<AccountGuild> findAllByGuildIdOrderByJoinedAtAsc(Long guildId);
 
