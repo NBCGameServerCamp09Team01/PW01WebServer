@@ -52,6 +52,11 @@ public class StageProgressService {
         return new StageProgressListResponse(cleared.size(), stageCatalog.totalCount(), stages);
     }
 
+    /** 클리어했는가(account_stage_progress 행이 있나). 다른 기능의 조건 판정용(예: 길드 만들기). 키 모양·존재는 부르는 쪽 책임 */
+    public boolean hasCleared(Long accountId, String stageId) {
+        return progressRepository.existsByAccountIdAndStageId(accountId, stageId);
+    }
+
     /** 열렸는가(클리어한 스테이지 포함). 없는 키면 STAGE_NOT_FOUND */
     public boolean isUnlocked(Long accountId, String stageId) {
         StageDef stage = stageCatalog.get(stageId);

@@ -3,6 +3,7 @@ package com.pw01.webserver.account.service;
 import com.pw01.webserver.account.dto.AccountSnapshotResponse;
 import com.pw01.webserver.account.dto.LoginCandidate;
 import com.pw01.webserver.account.entity.Account;
+import com.pw01.webserver.account.event.AccountCreatedEvent;
 import com.pw01.webserver.account.entity.AccountLedger;
 import com.pw01.webserver.account.entity.AccountProgress;
 import com.pw01.webserver.account.entity.AccountSkill;
@@ -20,6 +21,7 @@ import com.pw01.webserver.progression.requirement.RequirementProgress;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -63,6 +65,7 @@ public class AccountService {
     private final AccountSkillRepository accountSkillRepository;
     private final LevelCurve levelCurve;
     private final EntityManager entityManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Account register(String loginId, String passwordHash, String nickname, String email){
@@ -74,14 +77,17 @@ public class AccountService {
         if(accountRepository.existsByNickname(nickname)){
             throw nicknameDuplicated();
         }
+        Account account;
         try{
-            Account account = accountRepository.saveAndFlush(
+            account = accountRepository.saveAndFlush(
                     Account.create(loginId, passwordHash, nickname, email));
             accountProgressRepository.save(AccountProgress.initial(account.getId()));
-            return account;
         } catch (DataIntegrityViolationException e){ // 2차 방어(동시 가입을 DB가 막은 경우)
             throw toConflict(e);
         }
+        // 다른 기능의 첫 줄(길드 소속 줄 등)은 받는 쪽이 같은 트랜잭션에서 만든다. 받는 쪽 오류를 중복 가입으로 바꾸지 않도록 try 밖에서 낸다
+        eventPublisher.publishEvent(new AccountCreatedEvent(account.getId()));
+        return account;
     }
 
     /** 로그인 판단용 값(아이디는 대소문자까지 같은 것만 찾는다). 엔티티 대신 필요한 값만 돌려준다 */
