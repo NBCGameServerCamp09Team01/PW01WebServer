@@ -38,6 +38,15 @@ public interface AccountGuildRepository extends JpaRepository<AccountGuild, Long
     List<Long> findAccountIdsByGuildId(@Param("guildId") Long guildId);
 
     /**
+     * 해체 전용: 그 길드원 계정 ID를 잠금 읽기(FOR UPDATE)로 읽는다. 일반 SELECT는 트랜잭션 스냅숏을 봐서,
+     * 스냅숏이 고정된 뒤 수락된 길드원이 빠질 수 있다(해체 알림·채팅 정리 대상에서 누락). 잠금 읽기는 최신 커밋 행을 본다.
+     * 곧 벌크로 고칠 행들이라 잠가도 잠금 순서(guild → account_guild)를 어기지 않는다.
+     */
+    @Query(value = "SELECT account_id FROM account_guild WHERE guild_id = :guildId ORDER BY account_id FOR UPDATE",
+            nativeQuery = true)
+    List<Long> lockAccountIdsByGuildId(@Param("guildId") Long guildId);
+
+    /**
      * 무소속 account_guild 행을 넣는다. 이미 있으면 아무것도 바꾸지 않는다(예외 없음). 가입 이벤트 뒤에도 행이 없을 때(섞여 도는 배포,
      * 동시에 두 번) 길드 기능이 그 자리에서 부른다. AccountStageProgressRepository.insertIfAbsent와 같은 방식
      * (INSERT IGNORE는 외래 키·CHECK 위반까지 넘기므로 쓰지 않음, 반환 행 수로 "새로 넣음"을 판단하지 않음).

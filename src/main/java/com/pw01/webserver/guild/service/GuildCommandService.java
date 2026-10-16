@@ -4,7 +4,13 @@ import com.pw01.webserver.account.service.ProgressWriter;
 import com.pw01.webserver.common.error.ConflictException;
 import com.pw01.webserver.common.idempotency.IdempotencyService;
 import com.pw01.webserver.config.GuildProperties;
+import com.pw01.webserver.guild.dto.GuildActionKey;
+import com.pw01.webserver.guild.dto.GuildActionRequest;
+import com.pw01.webserver.guild.dto.GuildApproveResponse;
 import com.pw01.webserver.guild.dto.GuildCreateRequest;
+import com.pw01.webserver.guild.dto.GuildDisbandResponse;
+import com.pw01.webserver.guild.dto.GuildLeaveResponse;
+import com.pw01.webserver.guild.dto.GuildRejectResponse;
 import com.pw01.webserver.guild.dto.GuildJoinRequestCreateRequest;
 import com.pw01.webserver.guild.dto.GuildJoinRequestResponse;
 import com.pw01.webserver.guild.dto.GuildRequirementResponse;
@@ -22,9 +28,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
- * 길드 쓰기(guild-api.md G3·G5·G6, 수락·거절·탈퇴·해체는 W6).
+ * 길드 쓰기(guild-api.md G3·G5·G6·G8·G9·G11·G12).
  * 순서: 중복 방지(IdempotencyService) → ProgressWriter(새 트랜잭션, 낙관적 락 충돌·교착이면 다시) → GuildMembershipTx 본문.
  * <p>
  * 이 클래스의 G3·G5 메서드에는 @Transactional을 붙이지 않는다(붙이면 ProgressWriter의 새 트랜잭션이 바깥 트랜잭션에 묶여 다시 하기가 안 됨).
@@ -76,6 +83,53 @@ public class GuildCommandService {
                 throw translate(e);
             }
         });
+    }
+
+    /** G8 수락(길드장) */
+    public GuildApproveResponse approve(Long accountId, String joinRequestId, GuildActionRequest request) {
+        Long id = joinRequestId(joinRequestId);
+        return runAction(accountId, "approve", joinRequestId, request, GuildApproveResponse.class,
+                () -> membershipTx.approve(accountId, id, Instant.now()));
+    }
+
+    /** G9 거절(길드장) */
+    public GuildRejectResponse reject(Long accountId, String joinRequestId, GuildActionRequest request) {
+        Long id = joinRequestId(joinRequestId);
+        return runAction(accountId, "reject", joinRequestId, request, GuildRejectResponse.class,
+                () -> membershipTx.reject(accountId, id, Instant.now()));
+    }
+
+    /** G11 탈퇴(길드장이 혼자면 해체) */
+    public GuildLeaveResponse leave(Long accountId, GuildActionRequest request) {
+        return runAction(accountId, "leave", null, request, GuildLeaveResponse.class,
+                () -> membershipTx.leave(accountId, Instant.now()));
+    }
+
+    /** G12 해체(길드장) */
+    public GuildDisbandResponse disband(Long accountId, GuildActionRequest request) {
+        return runAction(accountId, "disband", null, request, GuildDisbandResponse.class,
+                () -> membershipTx.disband(accountId, Instant.now()));
+    }
+
+    /**
+     * 본문이 requestId뿐인 쓰기 넷의 공통 흐름. 멱등 키의 본문 해시는 동작·대상까지 담은 GuildActionKey로 계산한다
+     * (같은 requestId로 다른 신청을 수락하면 처음 응답을 돌려주는 대신 409 IDEMPOTENCY_KEY_REUSED).
+     * 이 넷은 유일·외래 키 위반이 정상 흐름에서 나지 않으므로, 나면 데이터 버그로 보고 그대로 던진다(500).
+     */
+    private <T> T runAction(Long accountId, String action, String targetId, GuildActionRequest request,
+                            Class<T> responseType, Supplier<T> body) {
+        String requestId = request.requestId().toLowerCase(Locale.ROOT);
+        GuildActionKey key = new GuildActionKey(action, targetId, requestId);
+        return idempotencyService.run(accountId, requestId, key, responseType, () -> {
+            T result = progressWriter.run("guild-" + action + " requestId=" + requestId, body, e -> false);
+            log.info("길드 {} accountId={} target={}", action, accountId, targetId);
+            return result;
+        });
+    }
+
+    private static Long joinRequestId(String value) {
+        return GuildIds.parse(value)
+                .orElseThrow(() -> GuildErrors.invalidValue("joinRequestId", "신청 ID가 올바르지 않습니다."));
     }
 
     /**

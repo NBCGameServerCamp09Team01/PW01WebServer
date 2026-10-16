@@ -4,6 +4,7 @@ import com.pw01.webserver.account.service.AccountService;
 import com.pw01.webserver.config.GuildProperties;
 import com.pw01.webserver.guild.dto.GuildCreateStatusResponse;
 import com.pw01.webserver.guild.dto.GuildDetailResponse;
+import com.pw01.webserver.guild.dto.GuildJoinRequestListResponse;
 import com.pw01.webserver.guild.dto.GuildJoinRequestResponse;
 import com.pw01.webserver.guild.dto.GuildListResponse;
 import com.pw01.webserver.guild.dto.GuildMemberResponse;
@@ -102,6 +103,27 @@ public class GuildQueryService {
             return memberView(me.get(), now, ttl, requirements);
         }
         return unaffiliatedView(accountId, now, ttl, cleared, requirements);
+    }
+
+    /** G7 받은 신청(길드장만). 유효 기간 안, 오래된 순 */
+    public GuildJoinRequestListResponse receivedJoinRequests(Long accountId) {
+        AccountGuild me = accountGuildReader.find(accountId).filter(AccountGuild::isInGuild)
+                .orElseThrow(GuildErrors::notMember);
+        if (!me.isLeader()) {
+            throw GuildErrors.notLeader();
+        }
+        Guild guild = guildRepository.findById(me.getGuildId()).orElseThrow(GuildErrors::notMember);
+        Instant now = Instant.now();
+        Duration ttl = properties.joinRequestTtl();
+        List<GuildJoinRequest> requests = joinRequestRepository.findAllByGuildIdOrderByIdAsc(guild.getId()).stream()
+                .filter(request -> !request.isExpired(now, ttl))
+                .toList();
+        Map<Long, String> nicknames = accountService.getNicknames(
+                requests.stream().map(GuildJoinRequest::getAccountId).toList());
+        return new GuildJoinRequestListResponse(requests.stream()
+                .map(request -> GuildJoinRequestResponse.from(request, guild.getName(),
+                        nicknames.get(request.getAccountId()), ttl))
+                .toList());
     }
 
     private MyGuildResponse memberView(AccountGuild me, Instant now, Duration ttl,

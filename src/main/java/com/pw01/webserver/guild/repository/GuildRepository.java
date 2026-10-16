@@ -5,6 +5,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,6 +21,14 @@ public interface GuildRepository extends JpaRepository<Guild, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT g FROM Guild g WHERE g.id = :guildId")
     Optional<Guild> findByIdForUpdate(@Param("guildId") Long guildId);
+
+    /**
+     * 해체 전용 벌크 DELETE. 해체는 앞선 벌크 UPDATE(clearAutomatically)로 영속성 컨텍스트가 비워져 guild 엔티티가 관리 밖이므로
+     * 엔티티 삭제(delete) 대신 쿼리로 지운다. 소속(account_guild)·신청(guild_join_request)을 먼저 비워야 외래 키에 걸리지 않는다.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("DELETE FROM Guild g WHERE g.id = :guildId")
+    int deleteGuild(@Param("guildId") Long guildId);
 
     /** 이름이 이미 있나. name 칼럼이 utf8mb4_0900_bin이라 대소문자까지 같아야 같은 이름이다 */
     boolean existsByName(String name);

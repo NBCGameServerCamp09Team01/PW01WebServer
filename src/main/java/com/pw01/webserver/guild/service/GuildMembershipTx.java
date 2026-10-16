@@ -1,8 +1,16 @@
 package com.pw01.webserver.guild.service;
 
 import com.pw01.webserver.account.service.AccountService;
+import com.pw01.webserver.common.chat.GuildDisbandedEvent;
+import com.pw01.webserver.common.chat.GuildMemberJoinedEvent;
+import com.pw01.webserver.common.chat.GuildMemberLeftEvent;
 import com.pw01.webserver.config.GuildProperties;
+import com.pw01.webserver.guild.dto.GuildApproveResponse;
+import com.pw01.webserver.guild.dto.GuildDisbandResponse;
 import com.pw01.webserver.guild.dto.GuildJoinRequestResponse;
+import com.pw01.webserver.guild.dto.GuildLeaveResponse;
+import com.pw01.webserver.guild.dto.GuildMemberResponse;
+import com.pw01.webserver.guild.dto.GuildRejectResponse;
 import com.pw01.webserver.guild.entity.AccountGuild;
 import com.pw01.webserver.guild.entity.Guild;
 import com.pw01.webserver.guild.entity.GuildCounter;
@@ -12,7 +20,9 @@ import com.pw01.webserver.guild.repository.AccountGuildRepository;
 import com.pw01.webserver.guild.repository.GuildCounterRepository;
 import com.pw01.webserver.guild.repository.GuildJoinRequestRepository;
 import com.pw01.webserver.guild.repository.GuildRepository;
+import com.pw01.webserver.presence.service.PresenceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -41,6 +51,8 @@ public class GuildMembershipTx {
     private final GuildCounterRepository counterRepository;
     private final AccountGuildReader accountGuildReader;
     private final AccountService accountService;
+    private final PresenceService presenceService;
+    private final ApplicationEventPublisher events;
     private final GuildProperties properties;
 
     /**
@@ -113,6 +125,138 @@ public class GuildMembershipTx {
         GuildJoinRequest saved = joinRequestRepository.saveAndFlush(GuildJoinRequest.application(guildId, accountId));
         String nickname = accountService.getNicknames(Set.of(accountId)).get(accountId);
         return GuildJoinRequestResponse.from(saved, guild.getName(), nickname, ttl);
+    }
+
+    /**
+     * G8 수락 본문. 길드원을 넣는 길은 이 메서드 하나다(나중의 "초대 수락"도 여기로 — 정원·1인 1길드·잠금 순서가 한곳에).
+     * <ol>
+     *   <li>guild 행 인원 +1을 **먼저 saveAndFlush**: version UPDATE로 guild 행 배타 잠금을 먼저 잡는다.
+     *       뒤에서 account_guild.guild_id를 바꾸면 InnoDB가 외래 키 검사로 guild 행에 공유 잠금을 거는데,
+     *       두 수락이 공유 잠금을 쥔 채 배타 잠금으로 올리려 하면 교착한다(P-1). 같은 길드의 수락은 여기서 차례로 선다.</li>
+     *   <li>신청이 이 길드 것이고 만료 전인지 확인 → 아니면 404</li>
+     *   <li>신청자 account_guild 행 = MEMBER(version 올림 — 그사이 다른 길드에 들어갔으면 충돌 → 다시 하면 409)</li>
+     *   <li>신청자의 대기 중 신청 모두 삭제, 길드 생애 이벤트 발행(받는 쪽은 커밋 뒤)</li>
+     * </ol>
+     */
+    public GuildApproveResponse approve(Long leaderId, Long joinRequestId, Instant now) {
+        Guild guild = requireLeaderGuild(leaderId);
+        if (guild.isFull()) {
+            throw GuildErrors.full();
+        }
+        guild.increaseMemberCount();
+        guildRepository.saveAndFlush(guild);
+
+        GuildJoinRequest request = joinRequestRepository.findByIdAndGuildId(joinRequestId, guild.getId())
+                .filter(r -> !r.isExpired(now, properties.joinRequestTtl()))
+                .orElseThrow(GuildErrors::joinRequestNotFound);
+        AccountGuild applicant = accountGuildReader.getOrCreate(request.getAccountId());
+        if (applicant.isInGuild()) {
+            throw GuildErrors.alreadyJoined();
+        }
+        applicant.join(guild.getId(), GuildRole.MEMBER, now);
+        accountGuildRepository.saveAndFlush(applicant);
+        joinRequestRepository.deleteAllOfAccount(applicant.getAccountId());
+
+        events.publishEvent(new GuildMemberJoinedEvent(guild.getId().toString(), applicant.getAccountId()));
+        String nickname = accountService.getNicknames(Set.of(applicant.getAccountId())).get(applicant.getAccountId());
+        boolean online = presenceService.onlineOf(Set.of(applicant.getAccountId())).contains(applicant.getAccountId());
+        return new GuildApproveResponse(GuildMemberResponse.from(applicant, nickname, online), guild.getMemberCount());
+    }
+
+    /** G9 거절 본문. guild_join_request 행 하나만 지운다(guild 행은 고치지 않음) */
+    public GuildRejectResponse reject(Long leaderId, Long joinRequestId, Instant now) {
+        Guild guild = requireLeaderGuild(leaderId);
+        GuildJoinRequest request = joinRequestRepository.findByIdAndGuildId(joinRequestId, guild.getId())
+                .filter(r -> !r.isExpired(now, properties.joinRequestTtl()))
+                .orElseThrow(GuildErrors::joinRequestNotFound);
+        joinRequestRepository.delete(request);
+        joinRequestRepository.flush();
+        return new GuildRejectResponse(joinRequestId.toString());
+    }
+
+    /**
+     * G11 탈퇴 본문. 길드장이면 해체 길(혼자일 때만, 길드원이 있으면 409). 길드원이면 guild 행 인원 −1을 먼저 flush한 뒤
+     * 내 account_guild 행을 무소속으로(수락과 같은 잠금 순서).
+     */
+    public GuildLeaveResponse leave(Long accountId, Instant now) {
+        AccountGuild me = accountGuildReader.getOrCreate(accountId);
+        if (!me.isInGuild()) {
+            throw GuildErrors.notMember();
+        }
+        Long guildId = me.getGuildId();
+        if (me.isLeader()) {
+            disbandGuild(guildId, accountId, true, now);
+            return new GuildLeaveResponse(guildId.toString(), true);
+        }
+
+        Guild guild = guildRepository.findById(guildId).orElseThrow(GuildErrors::notMember);
+        guild.decreaseMemberCount();
+        guildRepository.saveAndFlush(guild);
+        me.leave();
+        accountGuildRepository.saveAndFlush(me);
+        events.publishEvent(new GuildMemberLeftEvent(guildId.toString(), accountId, GuildMemberLeftEvent.Reason.LEFT));
+        return new GuildLeaveResponse(guildId.toString(), false);
+    }
+
+    /** G12 해체 본문 */
+    public GuildDisbandResponse disband(Long accountId, Instant now) {
+        AccountGuild me = accountGuildReader.getOrCreate(accountId);
+        if (!me.isInGuild()) {
+            throw GuildErrors.notMember();
+        }
+        if (!me.isLeader()) {
+            throw GuildErrors.notLeader();
+        }
+        Long guildId = me.getGuildId();
+        disbandGuild(guildId, accountId, false, now);
+        return new GuildDisbandResponse(guildId.toString());
+    }
+
+    /**
+     * 해체. 비관적 잠금을 쓰는 유일한 길(설계 5-4).
+     * <ol>
+     *   <li>guild 행 SELECT … FOR UPDATE를 맨 먼저: 잠금 읽기라 최신 값(길드장·인원)을 보고, 지우는 동안 수락·탈퇴가 끼지 못한다
+     *       (그쪽의 guild 행 version UPDATE가 여기서 기다렸다가, 해체가 커밋되면 0행으로 실패해 다시 한 뒤 403·404).</li>
+     *   <li>해체 직전 길드원 ID를 잠금 읽기로(일반 SELECT는 스냅숏이라 방금 수락된 길드원을 놓칠 수 있음)</li>
+     *   <li>벌크: account_guild 소속 비우기(version +1) → guild_join_request 삭제 → guild 삭제. 외래 키 때문에 이 순서여야 한다.
+     *       벌크 뒤에는 영속성 컨텍스트가 비워지므로 앞서 읽은 엔티티를 다시 쓰지 않는다(P-3)</li>
+     *   <li>guild_counter −1(잠금 순서 예외: 맨 뒤. 생성이 잡는 guild 행은 새 행이라 원이 생기지 않음)</li>
+     *   <li>GuildDisbandedEvent 발행 — 채팅 모듈이 커밋 뒤 받아 그 길드 채팅을 지운다</li>
+     * </ol>
+     *
+     * @param leaving 길드장 탈퇴에서 왔으면 true(다른 길드원이 있으면 409 GUILD_LEADER_CANNOT_LEAVE)
+     */
+    private void disbandGuild(Long guildId, Long leaderId, boolean leaving, Instant now) {
+        Guild guild = guildRepository.findByIdForUpdate(guildId).orElseThrow(GuildErrors::notMember);
+        if (!guild.isLeader(leaderId)) {
+            throw GuildErrors.notLeader();
+        }
+        if (leaving && guild.getMemberCount() > 1) {
+            throw GuildErrors.leaderCannotLeave();
+        }
+        List<Long> formerMembers = accountGuildRepository.lockAccountIdsByGuildId(guildId);
+
+        accountGuildRepository.clearGuild(guildId, now);
+        joinRequestRepository.deleteAllOfGuild(guildId);
+        guildRepository.deleteGuild(guildId);
+
+        GuildCounter counter = counterRepository.getSingle();
+        counter.decrease();
+        counterRepository.saveAndFlush(counter);
+
+        events.publishEvent(new GuildDisbandedEvent(guildId.toString(), formerMembers));
+    }
+
+    /** 길드장 기능의 공통 확인: 길드가 없으면 403 NOT_MEMBER, 길드장이 아니면 403 NOT_LEADER */
+    private Guild requireLeaderGuild(Long accountId) {
+        AccountGuild me = accountGuildReader.getOrCreate(accountId);
+        if (!me.isInGuild()) {
+            throw GuildErrors.notMember();
+        }
+        if (!me.isLeader()) {
+            throw GuildErrors.notLeader();
+        }
+        return guildRepository.findById(me.getGuildId()).orElseThrow(GuildErrors::notMember);
     }
 
 }
