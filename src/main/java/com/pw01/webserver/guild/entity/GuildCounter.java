@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 서버 길드 수(guild_counter). 줄은 하나(id = 1, V10이 만듦).
+ * 서버 길드 수(guild_counter). 행은 하나(id = 1, V10이 만듦).
  * 만들기가 이 줄의 version을 올려 동시 만들기를 줄 세운다(잠금 순서의 맨 앞). 상한은 설정 값이라 서비스가 canCreate로 판정한다.
  */
 @Entity
@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class GuildCounter extends BaseEntity {
 
-    /** 줄 하나뿐인 길드 수 줄의 ID */
+    /** 행 하나뿐인 guild_counter 행의 ID */
     public static final int SINGLE_ID = 1;
 
     @Id

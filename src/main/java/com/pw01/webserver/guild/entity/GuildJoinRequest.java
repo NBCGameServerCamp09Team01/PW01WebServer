@@ -11,9 +11,9 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * 대기 중 가입 신청 한 줄(guild_join_request). 수락·거절·취소·해체되면 지운다.
- * 유효 기간은 칸으로 두지 않고 신청 시각(createdAt) + 설정 값으로 계산한다(설정을 바꾸면 기존 신청에도 바로 적용).
- * 같은 사람·같은 길드는 한 줄(유일 uk_guild_join_request_account_guild).
+ * 대기 중 가입 신청 한 행(guild_join_request). 수락·거절·취소·해체되면 지운다.
+ * 유효 기간은 칼럼으로 두지 않고 신청 시각(createdAt) + 설정 값으로 계산한다(설정을 바꾸면 기존 신청에도 바로 적용).
+ * 같은 사람·같은 길드는 한 행(유일 uk_guild_join_request_account_guild).
  */
 @Entity
 @Table(name = "guild_join_request", uniqueConstraints = @UniqueConstraint(

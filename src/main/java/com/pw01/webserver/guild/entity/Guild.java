@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.util.Objects;
 
 /**
- * 길드 한 줄(guild). 인원 칸(memberCount)은 사람 줄(account_guild)의 실제 수와 같게, 같은 트랜잭션에서 고친다.
+ * 길드 한 행(guild). 인원 칼럼(memberCount)은 account_guild 행(account_guild)의 실제 수와 같게, 같은 트랜잭션에서 고친다.
  * version(@Version)이 같은 길드를 동시에 고치는 수락·탈퇴를 줄 세운다(낙관적 락, 부딪히면 ProgressWriter가 다시 함).
  * 정원 판정은 서비스가 isFull()로 먼저 하고, 여기 메서드는 규칙을 어기면 IllegalStateException(서비스 버그)으로 막는다.
  * DB CHECK(ck_guild_member_count: 1 ≤ 인원 ≤ 정원)가 마지막 방어다.

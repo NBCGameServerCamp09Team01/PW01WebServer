@@ -6,11 +6,12 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * 대기 중 신청. 유효 기간은 표에 없어서(신청 시각 + 설정 값) 만료된 줄도 읽히며, 거르는 일은 서비스가 한다.
+ * 대기 중 신청. 유효 기간은 표에 없어서(신청 시각 + 설정 값) 만료된 행도 읽히며, 거르는 일은 서비스가 한다.
  */
 public interface GuildJoinRequestRepository extends JpaRepository<GuildJoinRequest, Long> {
 
@@ -22,6 +23,9 @@ public interface GuildJoinRequestRepository extends JpaRepository<GuildJoinReque
 
     Optional<GuildJoinRequest> findByAccountIdAndGuildId(Long accountId, Long guildId);
 
+    /** 길드가 받은 유효한 신청 수(G4 pendingJoinRequestCount). validAfter = 지금 − 유효 기간(그보다 뒤에 들어온 신청만) */
+    long countByGuildIdAndCreatedAtAfter(Long guildId, Instant validAfter);
+
     /** 수락·거절: 그 신청이 내 길드 것일 때만 */
     Optional<GuildJoinRequest> findByIdAndGuildId(Long id, Long guildId);
 
@@ -31,7 +35,7 @@ public interface GuildJoinRequestRepository extends JpaRepository<GuildJoinReque
 
     /**
      * 한 사람의 신청을 모두 지운다(수락되거나 길드를 만들면). 트랜잭션의 마지막 쓰기로 부른다.
-     * 부른 쪽이 읽어 둔 엔티티(길드·사람 줄)를 놓지 않도록 영속성 컨텍스트를 비우지 않는다. 지운 신청 엔티티는 다시 쓰지 않는다.
+     * 부른 쪽이 읽어 둔 엔티티(길드·account_guild 행)를 놓지 않도록 영속성 컨텍스트를 비우지 않는다. 지운 신청 엔티티는 다시 쓰지 않는다.
      */
     @Modifying(flushAutomatically = true)
     @Query("DELETE FROM GuildJoinRequest r WHERE r.accountId = :accountId")

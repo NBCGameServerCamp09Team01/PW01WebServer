@@ -24,9 +24,9 @@ class GuildSchemaTest {
     @Autowired
     JdbcTemplate jdbc;
 
-    // 확인: 길드 수 줄 하나(counter_id = 1)가 V10에서 만들어지고, 두 번째 줄은 CHECK가 막는다
+    // 확인: guild_counter 행 하나(counter_id = 1)가 V10에서 만들어지고, 두 번째 행은 CHECK가 막는다
     @Test
-    void 길드_수_줄은_하나() {
+    void 길드_수_행은_하나() {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM guild_counter WHERE counter_id = 1", Integer.class))
                 .isEqualTo(1);
         assertThatThrownBy(() -> jdbc.update("""
@@ -73,9 +73,9 @@ class GuildSchemaTest {
                 .isInstanceOf(DataAccessException.class).hasMessageContaining("ck_guild_member_count");
     }
 
-    // 확인: 사람 줄은 무소속(셋 다 NULL) 또는 소속(셋 다 값)만 된다, 역할은 LEADER·MEMBER만
+    // 확인: account_guild 행은 무소속(셋 다 NULL) 또는 소속(셋 다 값)만 된다, 역할은 LEADER·MEMBER만
     @Test
-    void 사람_줄_세_칸은_같이() {
+    void 소속_세_칼럼은_같이() {
         long leader = insertAccount("GuildSc04", "길드스키마04");
         long other = insertAccount("GuildSc05", "길드스키마05");
         long another = insertAccount("GuildSc06", "길드스키마06");
@@ -91,9 +91,9 @@ class GuildSchemaTest {
                 .isInstanceOf(DataAccessException.class).hasMessageContaining("ck_account_guild_role");
     }
 
-    // 확인: 사람 줄은 계정마다 하나(기본 키) — 한 사람 길드 하나의 마지막 방어
+    // 확인: account_guild 행은 계정마다 하나(기본 키) — 한 사람 길드 하나의 마지막 방어
     @Test
-    void 사람_줄은_계정마다_하나() {
+    void 소속_행은_계정마다_하나() {
         long account = insertAccount("GuildSc07", "길드스키마07");
         insertPerson(account, null, null);
 

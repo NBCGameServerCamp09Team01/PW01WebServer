@@ -22,8 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 사람 줄(account_guild)이 생기는 길 셋: 가입 이벤트(AccountGuildInitializer), 줄이 없을 때 그 자리에서(AccountGuildReader),
- * 그리고 그 둘이 겹쳐도 줄 하나.
+ * account_guild 행(account_guild)이 생기는 길 셋: 가입 이벤트(AccountGuildInitializer), 행이 없을 때 그 자리에서(AccountGuildReader),
+ * 그리고 그 둘이 겹쳐도 행 하나.
  * 실패하면 AccountService.register의 이벤트 발행 위치, AccountGuildInitializer의 리스너 종류(@EventListener = 같은 트랜잭션),
  * AccountGuildRepository.insertIfAbsent 쿼리를 먼저 의심한다.
  * 테스트끼리 DB를 함께 쓰므로 계정 아이디·닉네임을 서로 다르게 쓴다.
@@ -46,9 +46,9 @@ class AccountGuildInitTest {
     @Autowired
     TransactionTemplate tx;
 
-    // 확인: 가입하면 같은 트랜잭션에서 무소속 줄이 생긴다(version 0)
+    // 확인: 가입하면 같은 트랜잭션에서 무소속 account_guild 행이 생긴다(version 0)
     @Test
-    void 가입하면_무소속_줄() {
+    void 가입하면_무소속_행() {
         Account account = accountService.register("GuildIn01", "hash", "길드가입01", null);
 
         AccountGuild person = people.findById(account.getId()).orElseThrow();
@@ -56,9 +56,9 @@ class AccountGuildInitTest {
         assertThat(person.getVersion()).isZero();
     }
 
-    // 확인: 중복 가입으로 가입이 실패하면 사람 줄도 없다(이벤트는 저장이 성공한 뒤에만 냄)
+    // 확인: 중복 가입으로 가입이 실패하면 account_guild 행도 없다(이벤트는 저장이 성공한 뒤에만 냄)
     @Test
-    void 가입이_실패하면_줄도_없음() {
+    void 가입이_실패하면_행도_없음() {
         accountService.register("GuildIn02", "hash", "길드가입02", null);
         Integer before = jdbc.queryForObject("SELECT COUNT(*) FROM account_guild", Integer.class);
 
@@ -67,7 +67,7 @@ class AccountGuildInitTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM account_guild", Integer.class)).isEqualTo(before);
     }
 
-    // 확인: 줄이 없는 계정(SQL로 만든 계정 = 옛 서버가 받은 가입)은 쓰기 트랜잭션에서 그 자리에서 만들어진다. 읽기는 빈 값
+    // 확인: 행이 없는 계정(SQL로 만든 계정 = 옛 서버가 받은 가입)은 쓰기 트랜잭션에서 그 자리에서 만들어진다. 읽기는 빈 값
     @Test
     void 줄이_없으면_그_자리에서() {
         long accountId = insertAccount("GuildIn04", "길드가입04");
@@ -80,7 +80,7 @@ class AccountGuildInitTest {
         assertThat(reader.find(accountId)).isPresent();
     }
 
-    // 확인: 신청용은 줄이 없으면 만든 뒤 잡고, 잡을 때 version이 오른다(만든 줄 0 → 1)
+    // 확인: 신청용은 행이 없으면 만든 뒤 잡고, 잡을 때 version이 오른다(만든 행 0 → 1)
     @Test
     void 신청용도_줄이_없으면_만들고_잡음() {
         long accountId = insertAccount("GuildIn05", "길드가입05");
@@ -90,9 +90,9 @@ class AccountGuildInitTest {
         assertThat(people.findById(accountId).orElseThrow().getVersion()).isEqualTo(1L);
     }
 
-    // 확인: 줄이 없는 계정에 둘이 동시에 getOrCreate해도 둘 다 성공, 줄은 하나
+    // 확인: 행이 없는 계정에 둘이 동시에 getOrCreate해도 둘 다 성공, 행은 하나
     @Test
-    void 동시에_만들어도_줄_하나() throws Exception {
+    void 동시에_만들어도_행_하나() throws Exception {
         long accountId = insertAccount("GuildIn06", "길드가입06");
         CountDownLatch start = new CountDownLatch(1);
         Callable<Long> task = () -> {
@@ -112,7 +112,7 @@ class AccountGuildInitTest {
                 .isEqualTo(1);
     }
 
-    // 확인: 줄이 없는 계정에 신청용 둘이 동시에 와도 둘 다 성공하고 차례로 version을 올린다(0 → 1 → 2), 교착 없음
+    // 확인: 행이 없는 계정에 신청용 둘이 동시에 와도 둘 다 성공하고 차례로 version을 올린다(0 → 1 → 2), 교착 없음
     @Test
     void 신청용을_동시에_불러도_차례로() throws Exception {
         long accountId = insertAccount("GuildIn08", "길드가입08");

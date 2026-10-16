@@ -22,8 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 길드 엔티티 넷이 V10 표와 맞는지(저장 → 다시 읽기), 저장소의 잠금·벌크·insertIfAbsent 쿼리가 뜻대로 도는지 본다.
- * 기동 자체(ddl-auto=validate)가 엔티티 칸 = 마이그레이션 칸의 첫 확인이다.
- * 실패하면 엔티티의 칼럼 이름·길이·enum 저장 방식, 저장소 쿼리(JPQL의 감사 칸 updatedAt, 네이티브 INSERT 칸 순서)를 먼저 의심한다.
+ * 기동 자체(ddl-auto=validate)가 엔티티 필드 = 마이그레이션 칼럼의 첫 확인이다.
+ * 실패하면 엔티티의 칼럼 이름·길이·enum 저장 방식, 저장소 쿼리(JPQL의 감사 칼럼 updatedAt, 네이티브 INSERT 칼럼 순서)를 먼저 의심한다.
  * 테스트끼리 DB를 함께 쓰므로 계정 아이디·닉네임·길드 이름을 서로 다르게 쓴다.
  */
 @IntegrationTest
@@ -49,9 +49,9 @@ class GuildRepositoryTest {
     @Autowired
     GuildCounterRepository counters;
 
-    // 확인: 길드·사람 줄을 엔티티로 저장하고 같은 값으로 읽는다. 처음 version은 0, 이름 유무는 대소문자까지
+    // 확인: 길드·account_guild 행을 엔티티로 저장하고 같은 값으로 읽는다. 처음 version은 0, 이름 유무는 대소문자까지
     @Test
-    void 길드와_사람_줄_저장_읽기() {
+    void 길드와_소속_행_저장_읽기() {
         long leader = insertAccount("GuildRp01", "길드저장01");
         Guild saved = guilds.save(Guild.create("저장Dawn", leader, 30));
         AccountGuild person = AccountGuild.unaffiliated(leader);
@@ -72,7 +72,7 @@ class GuildRepositoryTest {
         assertThat(people.findAccountIdsByGuildId(saved.getId())).containsExactly(leader);
     }
 
-    // 확인: 인원을 바꿔 저장하면 version이 오른다(낙관적 락이 걸리는 칸)
+    // 확인: 인원을 바꿔 저장하면 version이 오른다(낙관적 락이 걸리는 칼럼)
     @Test
     void 인원이_바뀌면_version이_오름() {
         long leader = insertAccount("GuildRp02", "길드저장02");
@@ -85,9 +85,9 @@ class GuildRepositoryTest {
         assertThat(guild.getVersion()).isEqualTo(1L);
     }
 
-    // 확인: insertIfAbsent는 두 번 불러도 줄 하나, 이미 소속인 줄은 건드리지 않는다(예외 없음)
+    // 확인: insertIfAbsent는 두 번 불러도 행 하나, 이미 소속인 행은 건드리지 않는다(예외 없음)
     @Test
-    void 무소속_줄은_없을_때만() {
+    void 무소속_행은_없을_때만() {
         long account = insertAccount("GuildRp03", "길드저장03");
         long member = insertAccount("GuildRp04", "길드저장04");
         Long guildId = guilds.save(Guild.create("넣기길드", member, 30)).getId();
@@ -107,7 +107,7 @@ class GuildRepositoryTest {
         assertThat(people.findById(member).orElseThrow().belongsTo(guildId)).isTrue();
     }
 
-    // 확인: 신청용 잠금은 읽는 순간 사람 줄 version을 올린다(그 트랜잭션에서 다른 칸을 안 바꿔도)
+    // 확인: 신청용 잠금은 읽는 순간 account_guild 행 version을 올린다(그 트랜잭션에서 다른 칼럼을 안 바꿔도)
     @Test
     void 신청용_잠금은_version을_올림() {
         long account = insertAccount("GuildRp05", "길드저장05");
@@ -119,7 +119,7 @@ class GuildRepositoryTest {
         assertThat(people.findById(account).orElseThrow().getVersion()).isEqualTo(before + 1);
     }
 
-    // 확인: 해체용 잠금으로 길드 줄을 읽을 수 있다(FOR UPDATE는 트랜잭션 안에서만)
+    // 확인: 해체용 잠금으로 guild 행을 읽을 수 있다(FOR UPDATE는 트랜잭션 안에서만)
     @Test
     void 해체용_잠금으로_읽기() {
         long leader = insertAccount("GuildRp06", "길드저장06");
@@ -184,9 +184,9 @@ class GuildRepositoryTest {
         assertThat(requests.findAllByGuildIdOrderByIdAsc(g1)).isEmpty();
     }
 
-    // 확인: 길드 수 줄 하나를 읽는다(V10이 만든 줄)
+    // 확인: guild_counter 행 하나를 읽는다(V10이 만든 행)
     @Test
-    void 길드_수_줄_읽기() {
+    void 길드_수_행_읽기() {
         assertThat(counters.getSingle().getGuildCount()).isGreaterThanOrEqualTo(0);
     }
 

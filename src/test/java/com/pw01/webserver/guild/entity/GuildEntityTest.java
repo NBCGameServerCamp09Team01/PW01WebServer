@@ -60,9 +60,9 @@ class GuildEntityTest {
         assertThatThrownBy(() -> Guild.create("빈정원", 12L, 0)).isInstanceOf(IllegalArgumentException.class);
     }
 
-    // 확인: 무소속 → 들어감 → 나감, 세 칸이 같이 바뀐다(DB CHECK ck_account_guild_membership와 같은 규칙)
+    // 확인: 무소속 → 들어감 → 나감, 세 칼럼이 같이 바뀐다(DB CHECK ck_account_guild_membership와 같은 규칙)
     @Test
-    void 사람_줄_들어가고_나감() {
+    void 소속_들어가고_나감() {
         AccountGuild person = AccountGuild.unaffiliated(57L);
         assertThat(person.isInGuild()).isFalse();
 
