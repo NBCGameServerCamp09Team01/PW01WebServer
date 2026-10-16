@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -19,6 +20,8 @@ import java.util.function.Supplier;
  * 진행 행을 바꾸는 저장은 자기 재시도 루프를 두지 않고 이 클래스를 거친다.
  * work를 새 트랜잭션에서 실행하고, 같은 계정의 다른 저장과 부딪히면(진행 행 @Version, 또는 같은 행을 동시에 처음 넣어
  * 유일 제약 위반) 트랜잭션을 **새로 열어** 처음부터 다시 한다(같은 트랜잭션에서 다시 하면 계속 실패한다).
+ * 비관적 잠금 실패(MySQL 교착 1213·잠금 대기 초과 → PessimisticLockingFailureException)도 같이 다시 한다(M23 길드, G-43).
+ * 교착은 MySQL이 한쪽 트랜잭션을 이미 되돌린 뒤라, 새 트랜잭션으로 다시 하면 대개 통과한다.
  * 정한 횟수(pw01.progress.save-attempts)를 넘으면 409 VERSION_CONFLICT(retryable true).
  * work는 다시 실행돼도 같은 결과가 나와야 한다: 시작할 때 "이미 반영됐나"를 먼저 보고, 판정에 걸리면 아무것도 저장하지 않는다.
  */
@@ -44,7 +47,8 @@ public class ProgressWriter {
         for (int attempt = 1; ; attempt++) {
             try {
                 return transactionTemplate.execute(status -> work.get());
-            } catch (OptimisticLockingFailureException | DataIntegrityViolationException e) {
+            } catch (OptimisticLockingFailureException | PessimisticLockingFailureException
+                     | DataIntegrityViolationException e) {
                 if (e instanceof DataIntegrityViolationException violation && !retryOn.test(violation)) {
                     throw violation;
                 }

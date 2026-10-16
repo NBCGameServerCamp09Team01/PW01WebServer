@@ -41,6 +41,11 @@ public interface GuildJoinRequestRepository extends JpaRepository<GuildJoinReque
     @Query("DELETE FROM GuildJoinRequest r WHERE r.accountId = :accountId")
     int deleteAllOfAccount(@Param("accountId") Long accountId);
 
+    /** 신청 취소(G6): 내 신청일 때만 지운다. 없거나 남의 신청이면 0행(호출한 쪽은 그래도 204) */
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM GuildJoinRequest r WHERE r.id = :id AND r.accountId = :accountId")
+    int deleteOwn(@Param("id") Long id, @Param("accountId") Long accountId);
+
     /** 해체 전용: 그 길드가 받은 신청을 모두 지운다. AccountGuildRepository.clearGuild와 같이 전후로 flush·clear */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("DELETE FROM GuildJoinRequest r WHERE r.guildId = :guildId")
