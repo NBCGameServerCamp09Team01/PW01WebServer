@@ -8,7 +8,7 @@ public enum ChatScope {
     /** 접속한 모든 사람. 지금은 서버에 저장하지 않는다(GlobalChatHistory) */
     GLOBAL,
 
-    /** 그 길드원만. 소셜 모듈이 저장하고 불러온다(GuildChatHistory) */
+    /** 그 길드원만. 채팅 모듈이 저장하고 불러온다(GuildChatHistory). 길드 소속은 소셜이 답한다(GuildDirectory) */
     GUILD
 
 }
