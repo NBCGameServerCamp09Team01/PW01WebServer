@@ -21,13 +21,17 @@ import com.pw01.webserver.guild.repository.GuildCounterRepository;
 import com.pw01.webserver.guild.repository.GuildJoinRequestRepository;
 import com.pw01.webserver.guild.repository.GuildRepository;
 import com.pw01.webserver.presence.service.PresenceService;
+import com.pw01.webserver.realtime.dto.RealtimeMessageType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -124,6 +128,15 @@ public class GuildMembershipTx {
 
         GuildJoinRequest saved = joinRequestRepository.saveAndFlush(GuildJoinRequest.application(guildId, accountId));
         String nickname = accountService.getNicknames(Set.of(accountId)).get(accountId);
+
+        // 길드장에게 GUILD_JOIN_REQUESTED(받은 유효 신청 수 포함 — 방금 넣은 행도 셈)
+        long pendingCount = joinRequestRepository.countByGuildIdAndCreatedAtAfter(guildId, now.minus(ttl));
+        notice(guildId, List.of(guild.getLeaderAccountId()), RealtimeMessageType.GUILD_JOIN_REQUESTED, data(
+                "guildId", guildId.toString(),
+                "joinRequestId", saved.getId().toString(),
+                "accountId", accountId.toString(),
+                "nickname", nickname,
+                "pendingCount", pendingCount));
         return GuildJoinRequestResponse.from(saved, guild.getName(), nickname, ttl);
     }
 
@@ -159,6 +172,14 @@ public class GuildMembershipTx {
 
         events.publishEvent(new GuildMemberJoinedEvent(guild.getId().toString(), applicant.getAccountId()));
         String nickname = accountService.getNicknames(Set.of(applicant.getAccountId())).get(applicant.getAccountId());
+
+        // 길드원 전부(새 사람 포함 — 이 트랜잭션의 쓰기는 자기 SELECT에 보인다)에게 GUILD_MEMBER_JOINED
+        notice(guild.getId(), accountGuildRepository.findAccountIdsByGuildId(guild.getId()),
+                RealtimeMessageType.GUILD_MEMBER_JOINED, data(
+                        "guildId", guild.getId().toString(),
+                        "accountId", applicant.getAccountId().toString(),
+                        "nickname", nickname,
+                        "memberCount", guild.getMemberCount()));
         boolean online = presenceService.onlineOf(Set.of(applicant.getAccountId())).contains(applicant.getAccountId());
         return new GuildApproveResponse(GuildMemberResponse.from(applicant, nickname, online), guild.getMemberCount());
     }
@@ -171,6 +192,12 @@ public class GuildMembershipTx {
                 .orElseThrow(GuildErrors::joinRequestNotFound);
         joinRequestRepository.delete(request);
         joinRequestRepository.flush();
+
+        // 신청자에게 GUILD_JOIN_REJECTED(신청자는 길드원이 아니지만 길드에 관한 메시지라 그 길드 채널로)
+        notice(guild.getId(), List.of(request.getAccountId()), RealtimeMessageType.GUILD_JOIN_REJECTED, data(
+                "guildId", guild.getId().toString(),
+                "guildName", guild.getName(),
+                "joinRequestId", joinRequestId.toString()));
         return new GuildRejectResponse(joinRequestId.toString());
     }
 
@@ -195,6 +222,15 @@ public class GuildMembershipTx {
         me.leave();
         accountGuildRepository.saveAndFlush(me);
         events.publishEvent(new GuildMemberLeftEvent(guildId.toString(), accountId, GuildMemberLeftEvent.Reason.LEFT));
+
+        // 남은 길드원 + 나간 사람(내 화면도 길드 탭을 비워야 함)에게 GUILD_MEMBER_LEFT
+        List<Long> recipients = new ArrayList<>(accountGuildRepository.findAccountIdsByGuildId(guildId));
+        recipients.add(accountId);
+        notice(guildId, recipients, RealtimeMessageType.GUILD_MEMBER_LEFT, data(
+                "guildId", guildId.toString(),
+                "accountId", accountId.toString(),
+                "memberCount", guild.getMemberCount(),
+                "reason", GuildMemberLeftEvent.Reason.LEFT.name()));
         return new GuildLeaveResponse(guildId.toString(), false);
     }
 
@@ -235,6 +271,7 @@ public class GuildMembershipTx {
             throw GuildErrors.leaderCannotLeave();
         }
         List<Long> formerMembers = accountGuildRepository.lockAccountIdsByGuildId(guildId);
+        List<Long> applicants = joinRequestRepository.lockAccountIdsByGuildId(guildId);
 
         accountGuildRepository.clearGuild(guildId, now);
         joinRequestRepository.deleteAllOfGuild(guildId);
@@ -245,6 +282,25 @@ public class GuildMembershipTx {
         counterRepository.saveAndFlush(counter);
 
         events.publishEvent(new GuildDisbandedEvent(guildId.toString(), formerMembers));
+
+        // 해체 직전 길드원 + 그 길드 신청자(내 신청 목록에서 빠져야 함)에게 GUILD_DISBANDED
+        List<Long> recipients = new ArrayList<>(formerMembers);
+        recipients.addAll(applicants);
+        notice(guildId, recipients, RealtimeMessageType.GUILD_DISBANDED, data("guildId", guildId.toString()));
+    }
+
+    /** 커밋되면 보낼 실시간 알림을 낸다(GuildNotifier가 AFTER_COMMIT에 받음). 받는 사람·data는 지금 트랜잭션의 값 */
+    private void notice(Long guildId, List<Long> recipients, RealtimeMessageType type, Map<String, Object> data) {
+        events.publishEvent(new GuildRealtimeNotice(guildId.toString(), recipients, type, data));
+    }
+
+    /** 키·값을 번갈아 받아 넣은 순서대로의 data(JSON 필드 순서 = 명세 순서) */
+    private static Map<String, Object> data(Object... keyValues) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        for (int i = 0; i < keyValues.length; i += 2) {
+            data.put((String) keyValues[i], keyValues[i + 1]);
+        }
+        return data;
     }
 
     /** 길드장 기능의 공통 확인: 길드가 없으면 403 NOT_MEMBER, 길드장이 아니면 403 NOT_LEADER */

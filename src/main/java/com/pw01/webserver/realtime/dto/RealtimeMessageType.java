@@ -19,16 +19,22 @@ public enum RealtimeMessageType {
      */
     CHAT_MESSAGE,
 
-    /** 초안(M23 소셜): 길드 가입. data는 {guildId, accountId, nickname, memberCount}. sendToGuild */
+    /** M23 길드(v1.4): 신청 수락으로 길드원이 됨. data는 {guildId, accountId, nickname, memberCount}. 받는 사람: 길드원 전부(새 사람 포함) */
     GUILD_MEMBER_JOINED,
 
-    /** 초안(M23 소셜): 길드 탈퇴. data는 {guildId, accountId, memberCount, reason}. 나간 사람도 목록에 넣어 sendToGuild */
+    /** M23 길드(v1.4): 탈퇴·추방. data는 {guildId, accountId, memberCount, reason(LEFT·KICKED)}. 받는 사람: 남은 길드원 + 나간 사람 */
     GUILD_MEMBER_LEFT,
 
-    /** 초안·선택(M23 소셜, 현황에 접속 표시를 넣을 때): 길드원 접속·끊김. data는 {guildId, accountId, online}. sendToGuild */
+    /** 초안·선택(M23 길드 Lv2): 길드원 접속·끊김. data는 {guildId, accountId, online}. sendToGuild */
     PRESENCE_CHANGED,
 
-    /** 초안·선택(M23 소셜, 해체를 넣을 때): 길드 해체. data는 {guildId}. sendToGuild */
-    GUILD_DISBANDED
+    /** M23 길드(v1.4): 해체. data는 {guildId}. 받는 사람: 해체 직전 길드원 + 그 길드 신청자 */
+    GUILD_DISBANDED,
+
+    /** M23 길드(v1.4): 가입 신청이 들어옴. data는 {guildId, joinRequestId, accountId, nickname, pendingCount}. 받는 사람: 길드장 */
+    GUILD_JOIN_REQUESTED,
+
+    /** M23 길드(v1.4): 길드장이 신청을 거절함. data는 {guildId, guildName, joinRequestId}. 받는 사람: 신청자 */
+    GUILD_JOIN_REJECTED
 
 }

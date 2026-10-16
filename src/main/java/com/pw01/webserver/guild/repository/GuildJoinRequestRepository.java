@@ -29,6 +29,14 @@ public interface GuildJoinRequestRepository extends JpaRepository<GuildJoinReque
     /** 수락·거절: 그 신청이 내 길드 것일 때만 */
     Optional<GuildJoinRequest> findByIdAndGuildId(Long id, Long guildId);
 
+    /**
+     * 해체 전용: 그 길드 신청자 계정 ID를 잠금 읽기(FOR UPDATE)로 읽는다(해체 알림 대상). 일반 SELECT는 스냅숏이라
+     * 스냅숏 뒤에 들어온 신청자를 놓칠 수 있다. 곧 지울 행이라 잠가도 잠금 순서(guild → guild_join_request)를 어기지 않는다.
+     */
+    @Query(value = "SELECT account_id FROM guild_join_request WHERE guild_id = :guildId ORDER BY account_id FOR UPDATE",
+            nativeQuery = true)
+    List<Long> lockAccountIdsByGuildId(@Param("guildId") Long guildId);
+
     /** 해체 알림 대상(신청자) */
     @Query("SELECT r.accountId FROM GuildJoinRequest r WHERE r.guildId = :guildId ORDER BY r.accountId")
     List<Long> findAccountIdsByGuildId(@Param("guildId") Long guildId);
