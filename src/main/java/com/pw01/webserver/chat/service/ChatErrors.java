@@ -1,5 +1,6 @@
 package com.pw01.webserver.chat.service;
 
+import com.pw01.webserver.common.error.CommonErrorCode;
 import com.pw01.webserver.common.error.ErrorResponse.FieldErrorDetail;
 import com.pw01.webserver.common.error.ForbiddenException;
 import com.pw01.webserver.common.error.InvalidRequestException;
@@ -42,6 +43,12 @@ public final class ChatErrors {
     /** 403: 길드 없이 길드 채팅을 보내거나 불러옴 */
     public static ForbiddenException notGuildMember() {
         return new ForbiddenException(GUILD_NOT_MEMBER, "길드에 가입한 사람만 길드 채팅을 쓸 수 있습니다.");
+    }
+
+    /** 400 VALIDATION_FAILED: CH3 쿼리(before·size)가 규칙 밖. 형식 오류라 공통 코드를 쓴다(GuildErrors.invalidValue와 같은 결) */
+    public static InvalidRequestException invalidValue(String field, String message) {
+        return new InvalidRequestException(CommonErrorCode.VALIDATION_FAILED, "요청 값이 올바르지 않습니다.",
+                List.of(new FieldErrorDetail(field, message)));
     }
 
 }
