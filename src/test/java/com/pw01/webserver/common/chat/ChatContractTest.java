@@ -60,7 +60,7 @@ class ChatContractTest {
     // 확인: 길드 내역 커서 — 최신부터 size개(새것 → 옛것), nextCursor로 다음 묶음, 커서 줄은 빼고, 다른 길드 것은 안 섞임
     @Test
     void 길드_내역은_최신부터_커서로_불러온다() {
-        InMemoryGuildChatHistory history = new InMemoryGuildChatHistory(Duration.ofDays(7), () -> NOW);
+        InMemoryGuildChatHistory history = new InMemoryGuildChatHistory(Duration.ofDays(3), () -> NOW);
         for (int i = 1; i <= 5; i++) {
             history.append("7", 1L, "a", "m" + i);
         }
@@ -76,11 +76,11 @@ class ChatContractTest {
         assertThat(last.nextCursor()).isNull();
     }
 
-    // 확인: 보관 기간(7일) 밖의 줄은 돌려주지 않는다
+    // 확인: 보관 기간(3일, 채팅 지시서 2판) 밖의 줄은 돌려주지 않는다
     @Test
     void 보관_기간_밖은_돌려주지_않는다() {
-        AtomicReference<Instant> clock = new AtomicReference<>(NOW.minus(Duration.ofDays(8)));
-        InMemoryGuildChatHistory history = new InMemoryGuildChatHistory(Duration.ofDays(7), clock::get);
+        AtomicReference<Instant> clock = new AtomicReference<>(NOW.minus(Duration.ofDays(4)));
+        InMemoryGuildChatHistory history = new InMemoryGuildChatHistory(Duration.ofDays(3), clock::get);
         history.append("7", 1L, "a", "too old");
         assertThat(history.loadLatest("7", null, 30).messages()).hasSize(1);
 
