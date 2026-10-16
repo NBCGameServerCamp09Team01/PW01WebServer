@@ -37,6 +37,7 @@ com.pw01.webserver
 │                  JPA 엔티티 없이 JdbcClient. 결과 저장(StageResultService)이 같은 트랜잭션에서 RankingRecordService.recordClear를 부른다. 결정 기록 decisions/0002
 ├─ chat/           M23 채팅(루트 chat-api.md CH1·CH2·CH3). ChatService: 글 규칙(ChatTextPolicy) → 한 번만 반영 → 횟수 제한·도배 쉬기(RedisChatRateLimiter, chat_rate.lua)
 │                  → 길드 채팅은 guild_chat_message(V11, GuildChatHistoryImpl)에 저장하고 커밋 뒤 sendToGuild, 전체는 저장 없이 sendToAll
+│                  지우기: 해체 커밋 뒤 ChatDisbandListener, 하루 한 번 3일 지난 줄 GuildChatCleanupJob(전용 스케줄러, 1000줄씩 새 트랜잭션)
 └─ <기능>/          controller · service · repository · entity · dto  (지금은 account·auth)
 ```
 

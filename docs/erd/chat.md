@@ -45,4 +45,5 @@ erDiagram
 | `idx_guild_chat_message_created (created_at)` | 보관 기간(3일, `pw01.chat.guild.retention`)이 지난 줄 지우기 |
 
 - 내역은 늘 `created_at ≥ 지금 − 3일`로 거릅니다. 지우기 작업이 아직 돌지 않았어도 오래된 줄은 보이지 않습니다.
+- 지우기는 둘입니다. 해체가 커밋되면 `ChatDisbandListener`가 그 길드 줄을, 하루 한 번(`pw01.chat.cleanup.cron`, UTC) `GuildChatCleanupJob`이 3일 지난 줄을 지웁니다. 둘 다 `DELETE … LIMIT 1000`(`pw01.chat.cleanup.batch-size`)을 새 트랜잭션으로 반복합니다.
 - 외래 키를 걸지 않은 이유: 걸면 해체가 채팅 줄을 먼저 지워야 해서 길드가 채팅에 묶입니다(길드 설계 G-29 a, 채팅 계획서 C-12).
