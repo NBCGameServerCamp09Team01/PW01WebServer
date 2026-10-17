@@ -23,7 +23,7 @@
 | V7 | `V7__create_account_skill.sql` | S4 스킬 해금(계정별 해금 스킬), 누적 통계 키 3개 처음 값 | Robbie | #15 | 병합됨 |
 | V8 | `V8__create_ranking_tables.sql` | 랭킹(M7) 표 5개: 클리어 기록·스테이지 최고·지역 점수·전체 총합·진행 | Sang-Hyun-Kim | (사후 리뷰) | 병합됨(V7에서 옮김) |
 | V9 | `V9__add_stage_play_wave_plan.sql` | M24 서버 웨이브: `stage_play.wave_plan`(시작 때 구성 JSON)·`wave_version` | Robbie | — | 작업 중(`feat/m24-server-wave`) |
-| V10 | (예정) `V10__create_guild.sql` | M23 길드: 길드·계정 길드 줄(사람 줄)·가입 신청·길드 수 | Sang-Hyun-Kim | — | 예약(`feat/m23-social`) |
+| V10 | `V10__create_guild.sql` | M23 길드: `guild`·`account_guild`(계정마다 소속 한 행)·`guild_join_request`·`guild_counter`([erd/guild.md](erd/guild.md)) | Sang-Hyun-Kim | #31 | `feat/m23`에 병합됨(`dev` 전) |
 | V11 | (예정) 길드 채팅 표 | M23 채팅: `guild_chat_message` | 채팅 담당 | — | 예약(`feat/m23-chat`) |
 
 ## 예외 기록

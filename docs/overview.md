@@ -35,7 +35,11 @@ com.pw01.webserver
 ├─ stage/          지역·스테이지 정보(master/stages.json), 웨이브 구성·몬스터 정의(stage-waves.json·monsters.json, M24), 난이도(difficulties.json, M9), ST1 GET /stages와 계정별 클리어 진행(ST2 GET /accounts/me/stages)
 ├─ ranking/        랭킹(스테이지·지역·전체 총합·진행, 전체·주간). 원천 MySQL 표 5개(V8) + Redis 보드 사본(pw01:rank:*, rank_*.lua).
 │                  JPA 엔티티 없이 JdbcClient. 결과 저장(StageResultService)이 같은 트랜잭션에서 RankingRecordService.recordClear를 부른다. 결정 기록 decisions/0002
-└─ <기능>/          controller · service · repository · entity · dto  (지금은 account·auth)
+├─ guild/          M23 길드 G1~G12(G10 보류). 원본 MySQL 표 넷(V10, erd/guild.md). 쓰기는 GuildCommandService(중복 방지 → ProgressWriter)
+│                  → GuildMembershipTx(트랜잭션 몸통, 잠금 순서). GuildDirectory 구현·생애 이벤트(common/chat)·GUILD_* 알림(커밋 뒤). 결정 기록 decisions/0003
+├─ presence/       누가 실시간 연결을 갖고 있나(Redis pw01:presence:<계정>). 연결 이벤트(realtime/event)를 받아 씀, 바뀌면 PresenceChangedEvent
+│                  → guild의 GuildPresenceNotifier가 PRESENCE_CHANGED로 길드원에게
+└─ <기능>/          controller · service · repository · entity · dto  (account·auth·stage·stageplay·guild 등)
 ```
 
 ## 요청 흐름
