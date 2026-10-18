@@ -59,7 +59,10 @@ public class StageProgressService {
 
     /** 열렸는가(클리어한 스테이지 포함). 없는 키면 STAGE_NOT_FOUND */
     public boolean isUnlocked(Long accountId, String stageId) {
-        StageDef stage = stageCatalog.get(stageId);
+        return isUnlocked(accountId, stageCatalog.get(stageId));
+    }
+
+    private boolean isUnlocked(Long accountId, StageDef stage) {
         return stage.requires() == null
                 || progressRepository.existsByAccountIdAndStageId(accountId, stage.requires());
     }
@@ -70,8 +73,16 @@ public class StageProgressService {
      * 없는 키 → STAGE_NOT_FOUND, 잠김 → STAGE_LOCKED(HTTP 상태는 StageErrors).
      */
     public StageDef requireStartable(Long accountId, String stageId) {
-        StageDef stage = stageCatalog.get(stageId);
-        if (!isUnlocked(accountId, stage.stageId())) {
+        return requireStartable(accountId, stageId, stageCatalog.content());
+    }
+
+    /**
+     * requireStartable과 같다. 부르는 쪽이 이미 받은 정의 덩어리(StageCatalog.content())로 판단한다.
+     * 판 시작은 이 결과(구성)와 waveVersion을 같은 덩어리에서 읽어야 하므로 이것을 부른다.
+     */
+    public StageDef requireStartable(Long accountId, String stageId, StageContent content) {
+        StageDef stage = content.get(stageId);
+        if (!isUnlocked(accountId, stage)) {
             throw StageErrors.locked();
         }
         return stage;

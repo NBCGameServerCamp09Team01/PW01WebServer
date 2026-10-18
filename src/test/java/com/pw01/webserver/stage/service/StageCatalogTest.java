@@ -135,7 +135,7 @@ class StageCatalogTest {
     }
 
     // 확인(M9): 난이도별 구성. 난이도 0은 waves와 같고, 노말·하드는 같은 줄(몬스터 종류)·같은 수(수 배율 1.0)에
-    // 체력·공격력 배율만 다르다. 실패하면 StageCatalog.toStage·toEnemy, 실제 difficulties.json 값을 의심한다
+    // 체력·공격력 배율만 다르다. 실패하면 StageContent.toStage·toEnemy, 실제 difficulties.json 값을 의심한다
     @Test
     void 난이도별_구성() {
         StageDef stage = catalog.get("stage.01.01");
@@ -152,6 +152,24 @@ class StageCatalogTest {
                     .isEqualTo(stage.waves().stream()
                             .map(wave -> wave.enemies().stream().map(WaveEnemyDef::monsterId).toList()).toList());
         }
+    }
+
+    // 확인(실행 중 교체): 덩어리를 바꾸면 그 뒤 읽기는 새 값, 바꾸기 전에 받아 둔 덩어리는 옛 값 그대로(요청 하나 = 한 덩어리).
+    // 지금 덩어리가 expected가 아니면(그사이 다른 교체) 바꾸지 않는다.
+    // 실패하면 StageCatalog가 AtomicReference를 거치지 않고 값을 따로 들고 있는지, replace의 비교를 의심한다
+    @Test
+    void 덩어리_교체() {
+        StageContent before = catalog.content();
+        StageContent next = new StageContent(before.regions(), before.stagesById(), before.monsters(),
+                before.difficulties(), "w9-m2-d1");
+
+        assertThat(catalog.replace(before, next)).isTrue();
+
+        assertThat(catalog.content()).isSameAs(next);
+        assertThat(catalog.waveVersion()).isEqualTo("w9-m2-d1");
+        assertThat(before.waveVersion()).isEqualTo("w3-m2-d1");
+        assertThat(catalog.replace(before, before)).isFalse();
+        assertThat(catalog.content()).isSameAs(next);
     }
 
 }

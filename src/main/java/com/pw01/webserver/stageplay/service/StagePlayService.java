@@ -3,6 +3,7 @@ package com.pw01.webserver.stageplay.service;
 import com.pw01.webserver.account.service.AccountService;
 import com.pw01.webserver.config.StagePlayProperties;
 import com.pw01.webserver.stage.service.StageCatalog;
+import com.pw01.webserver.stage.service.StageContent;
 import com.pw01.webserver.stage.service.StageDef;
 import com.pw01.webserver.stage.service.StageProgressService;
 import com.pw01.webserver.stageplay.dto.InProgressStagePlayListResponse;
@@ -53,21 +54,24 @@ public class StagePlayService {
      * 그때는 새 트랜잭션에서 한 번 더 판단한다: 같은 requestId면 처음 플레이, 아니면 409 STAGE_PLAY_IN_PROGRESS.
      */
     public StagePlayResponse start(Long accountId, StagePlayStartRequest request) {
+        // 정의는 실행 중에 바뀔 수 있다(stage-api.md "서버 정의 바꾸기"). 이 요청은 덩어리 하나로 검사·구성·버전을 모두 본다
+        StageContent content = stageCatalog.content();
         // 형식 검증 다음: difficulties.json에 있는 난이도만(없으면 400 VALIDATION_FAILED)
-        if (!stageCatalog.hasDifficulty(request.difficultyOrDefault())) {
+        if (!content.hasDifficulty(request.difficultyOrDefault())) {
             throw StagePlayErrors.unknownDifficulty(request.difficultyOrDefault());
         }
         String requestId = request.requestId().toLowerCase(Locale.ROOT);
         try {
-            return transactionTemplate.execute(status -> startOnce(accountId, requestId, request));
+            return transactionTemplate.execute(status -> startOnce(accountId, requestId, request, content));
         } catch (DataIntegrityViolationException e) {
             log.info("스테이지 플레이 시작이 동시에 와서 다시 판단함 accountId={} requestId={} cause={}",
                     accountId, requestId, e.getMostSpecificCause().getMessage());
-            return transactionTemplate.execute(status -> startOnce(accountId, requestId, request));
+            return transactionTemplate.execute(status -> startOnce(accountId, requestId, request, content));
         }
     }
 
-    private StagePlayResponse startOnce(Long accountId, String requestId, StagePlayStartRequest request) {
+    private StagePlayResponse startOnce(Long accountId, String requestId, StagePlayStartRequest request,
+                                        StageContent content) {
         // 1. 같은 시작 요청을 다시 보냄(응답을 못 받음) → 처음 플레이. 다른 스테이지·난이도면 게임 버그
         Optional<StagePlay> sameRequest = stagePlayRepository.findByAccountIdAndStartRequestId(accountId, requestId);
         if (sameRequest.isPresent()) {
@@ -89,14 +93,14 @@ public class StagePlayService {
         }
 
         // 3. d의 스테이지 확인: 없으면 404 STAGE_NOT_FOUND, 잠겼으면 403 STAGE_LOCKED
-        StageDef stage = stageProgressService.requireStartable(accountId, request.stageId());
+        StageDef stage = stageProgressService.requireStartable(accountId, request.stageId(), content);
 
-        // 4. 발급. 웨이브 수와 구성·버전은 같은 정의(StageDef)에서 함께 저장한다(체크포인트 범위 = 구성 길이).
+        // 4. 발급. 웨이브 수와 구성·버전은 같은 정의 덩어리에서 함께 저장한다(체크포인트 범위 = 구성 길이).
         //    구성은 그 난이도의 마리 수·배율을 반영한 것(M9). 바로 flush해서 동시 시작의 유일 제약 위반을 여기서 드러낸다
         int difficulty = request.difficultyOrDefault();
         StagePlay play = stagePlayRepository.saveAndFlush(StagePlay.start(accountId, stage,
                 difficulty, requestId, now, stagePlayProperties.validity(),
-                wavePlanCodec.write(stage.wavesFor(difficulty)), stageCatalog.waveVersion()));
+                wavePlanCodec.write(stage.wavesFor(difficulty)), content.waveVersion()));
         log.info("스테이지 플레이 시작 stagePlayId={} accountId={} stage={} difficulty={} waveVersion={}", play.getId(),
                 accountId, stage.stageId(), difficulty, play.getWaveVersion());
         return toResponse(play);
@@ -156,9 +160,10 @@ public class StagePlayService {
         if (play.getWavePlan() != null) {
             return StagePlayResponse.from(play, play.getWaveVersion(), wavePlanCodec.read(play.getWavePlan()));
         }
-        return stageCatalog.find(play.getStageId())
+        StageContent content = stageCatalog.content();
+        return content.find(play.getStageId())
                 .filter(stage -> stage.waves().size() == play.getWaveCount())
-                .map(stage -> StagePlayResponse.from(play, stageCatalog.waveVersion(), stage.waves()))
+                .map(stage -> StagePlayResponse.from(play, content.waveVersion(), stage.waves()))
                 .orElseGet(() -> StagePlayResponse.from(play, null, null));
     }
 
