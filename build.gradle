@@ -38,6 +38,16 @@ dependencies {
     // 비밀번호 해시 도구(BCrypt) 가져오기
     implementation 'org.springframework.security:spring-security-crypto'
 
+    // S3 웨이브 정의 읽기(판 12). Spring Cloud AWS 없이 SDK만. HTTP 클라이언트는 JDK 내장(url-connection) 하나만 둔다
+    // (둘 이상이면 SDK가 고르지 못해 예외). BOM은 출시 2주가 지난 판으로 고정
+    implementation platform('software.amazon.awssdk:bom:2.55.10')
+    implementation('software.amazon.awssdk:s3') {
+        exclude group: 'software.amazon.awssdk', module: 'apache-client'
+        exclude group: 'software.amazon.awssdk', module: 'apache5-client'
+        exclude group: 'software.amazon.awssdk', module: 'netty-nio-client'
+    }
+    implementation 'software.amazon.awssdk:url-connection-client'
+
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.mysql:mysql-connector-j'

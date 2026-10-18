@@ -7,11 +7,12 @@ import com.pw01.webserver.realtime.dto.RealtimeMessageType;
 import com.pw01.webserver.realtime.repository.RealtimeRelayPublisher;
 import com.pw01.webserver.realtime.service.RealtimeConnection;
 import com.pw01.webserver.realtime.service.RealtimeConnectionRegistry;
+import com.pw01.webserver.realtime.service.RealtimeEventPublisher;
 import com.pw01.webserver.realtime.service.RealtimeHeartbeat;
 import com.pw01.webserver.realtime.service.RealtimeLocalDelivery;
 import com.pw01.webserver.realtime.service.RealtimeNotifier;
 import com.pw01.webserver.realtime.service.RealtimeRelayListener;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import io.lettuce.core.api.async.BaseRedisAsyncCommands;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -37,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
@@ -69,20 +72,32 @@ class RealtimeRelayTest {
 
     private RealtimeConnectionRegistry registryB;
     private RealtimeHeartbeat heartbeatB;
+    private RealtimeEventPublisher eventsB;
     private RealtimeRelayPublisher publisherB;
     private RedisMessageListenerContainer containerB;
+    private ThreadPoolTaskExecutor relayExecutorB;
 
     @BeforeEach
     void startServerB() throws Exception {
         registryB = new RealtimeConnectionRegistry();
         heartbeatB = mock(RealtimeHeartbeat.class);
-        RealtimeServerId serverIdB = RealtimeServerId.of("server-b");
+        eventsB = mock(RealtimeEventPublisher.class);
+        ServerId serverIdB = ServerId.of("server-b");
         RealtimeLocalDelivery deliveryB = new RealtimeLocalDelivery(registryB, jsonMapper);
-        RealtimeRelayListener listenerB = new RealtimeRelayListener(deliveryB, registryB, heartbeatB, properties, serverIdB, jsonMapper);
+        RealtimeRelayListener listenerB = new RealtimeRelayListener(deliveryB, registryB, heartbeatB, properties, serverIdB,
+                eventsB, jsonMapper);
         publisherB = new RealtimeRelayPublisher(redis, jsonMapper, properties, serverIdB);
+
+        // 받기 스레드 하나(RealtimeRelayConfig와 같게). 컨테이너 기본은 메시지마다 새 스레드라 "순서대로" 시험이 가끔 깨진다(10/18 CI)
+        relayExecutorB = new ThreadPoolTaskExecutor();
+        relayExecutorB.setCorePoolSize(1);
+        relayExecutorB.setMaxPoolSize(1);
+        relayExecutorB.setThreadNamePrefix("relay-b-");
+        relayExecutorB.initialize();
 
         containerB = new RedisMessageListenerContainer();
         containerB.setConnectionFactory(connectionFactory);
+        containerB.setTaskExecutor(relayExecutorB);
         containerB.addMessageListener(listenerB, List.of(new ChannelTopic(properties.globalChannel()),
                 new ChannelTopic(properties.targetChannel()), new PatternTopic(properties.guildChannelPrefix() + "*")));
         containerB.afterPropertiesSet();
@@ -100,6 +115,7 @@ class RealtimeRelayTest {
     void stopServerB() throws Exception {
         containerB.stop();
         containerB.destroy();
+        relayExecutorB.shutdown();
     }
 
     // 확인: A에서 길드 7에 보내면 B에 붙은 길드원만 같은 id로 받는다(다른 사람은 못 받음)
@@ -196,6 +212,15 @@ class RealtimeRelayTest {
         }).when(socket).sendMessage(any());
         registry.register(new RealtimeConnection(socket, accountId, TOKEN));
         return received;
+    }
+
+    // 확인(판 12): A가 웨이브 정의를 바꾼 뒤 보낸 CONTENT_CHANGED가 실제 Redis를 거쳐 B에 이벤트로 간다.
+    // 실패하면 publishContentChanged의 채널(전체), 리스너의 kind 분기를 의심한다
+    @Test
+    void 정의_바뀜_알림이_다른_서버로_간다() {
+        notifierA.notifyContentChanged();
+
+        verify(eventsB, timeout(5_000)).contentChanged(anyString());
     }
 
 }

@@ -100,6 +100,14 @@ public class RealtimeNotifier {
         publisher.publishSessionCheck(Objects.requireNonNull(accountId, "accountId"));
     }
 
+    /**
+     * 다른 서버들에 "웨이브 정의가 바뀌었으니 다시 읽어라"를 넘긴다(서버끼리만, 게임 연결에는 보내지 않음, 판 12).
+     * 이 서버는 이미 바꾼 뒤 부른다(채널에서 돌아온 자기 메시지는 버리므로). 놓쳐도 받는 서버의 안전망 주기 확인이 메운다.
+     */
+    public void notifyContentChanged() {
+        publisher.publishContentChanged();
+    }
+
     private boolean withinLimits(RealtimeMessage message, int targetCount) {
         Objects.requireNonNull(message, "message");
         if (targetCount > properties.maxTargets()) {

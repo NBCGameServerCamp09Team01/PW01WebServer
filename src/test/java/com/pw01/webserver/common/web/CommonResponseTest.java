@@ -3,6 +3,7 @@ package com.pw01.webserver.common.web;
 import com.jayway.jsonpath.JsonPath;
 import com.pw01.webserver.IntegrationTest;
 import com.pw01.webserver.common.error.ErrorResponse;
+import com.pw01.webserver.common.server.ServerId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -31,6 +32,9 @@ class CommonResponseTest {
     @Autowired
     MockMvc mockMvc;
 
+    @Autowired
+    ServerId serverId;
+
     /** 성공: 본문은 {data, meta}, meta.requestId는 응답 헤더 X-Request-Id와 같다 */
     @Test
     void successIsWrappedWithRequestId() throws Exception {
@@ -42,6 +46,21 @@ class CommonResponseTest {
 
         String requestId = JsonPath.read(response.getContentAsString(), "$.meta.requestId");
         assertThat(response.getHeader(RequestIdFilter.HEADER)).isEqualTo(requestId);
+        assertThat(response.getHeader(ServerIdFilter.HEADER)).isEqualTo(serverId.value());
+    }
+
+    /**
+     * 판 12 W5(M-4): 성공·오류·204 모두 응답 헤더 X-Server-Id가 이 서버 번호다(여러 대일 때 어느 서버 로그를 볼지).
+     * 실패하면 ServerIdFilter가 등록됐는지(@Component), 처리 전에 헤더를 넣는지 의심한다
+     */
+    @Test
+    void everyResponseHasServerId() throws Exception {
+        mockMvc.perform(get("/accounts/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string(ServerIdFilter.HEADER, serverId.value()));
+        mockMvc.perform(get("/health"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(ServerIdFilter.HEADER, serverId.value()));
     }
 
     /** 오류(4xx): 감싸지 않고 retryable=false, 요청 번호는 헤더로만 */

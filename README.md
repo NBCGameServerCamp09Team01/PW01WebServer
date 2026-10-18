@@ -123,6 +123,25 @@ curl.exe -si http://localhost:8080/health
 - 코드를 고쳤으면 첫 줄을 다시(`--build`). 끝낼 때는 `… stop`(`down -v`는 데이터를 지웁니다).
 - 4번의 IntelliJ 앱과 8080이 겹치므로 먼저 멈춥니다. PC 메모리 약 2.5~3GB를 씁니다.
 
+**웨이브 정의를 재시작 없이 바꿔 보기(파일 출처, 선택)** — 배포 서버는 웨이브 구성(`stage-waves.json`)을 S3에서 읽고 재시작 없이 바꿉니다(루트 `docs/contracts/stage-api.md` "웨이브 구성 바꾸기"). 로컬에서는 S3 대신 PC의 파일 하나를 두 앱이 함께 보게 해서 같은 흐름(다시 읽기 신호 → 다른 앱에 알림 → 교체, 검사 실패면 유지, 5분 안전망)을 AWS 없이 해 봅니다. 기본은 지금처럼 이미지 안 리소스(classpath)라 켜지 않으면 아무것도 달라지지 않습니다.
+
+```bat
+:: 처음 한 번: 리소스 파일을 복사(local/content 는 git이 무시)
+mkdir local\content
+copy src\main\resources\master\stage-waves.json local\content\
+:: 파일 출처로 띄우기(PowerShell은 $env:STAGE_CONTENT_SOURCE="file" 다음 줄에 compose 명령). 안전망을 짧게 보려면 STAGE_CONTENT_SAFETY_POLL=20s
+set STAGE_CONTENT_SOURCE=file
+docker compose -f compose.yaml -f compose.apps.yaml up -d --build
+curl.exe -s http://localhost:8081/actuator/stagecontent
+```
+
+- 처음 띄울 때 Docker Desktop이 `local\content` 폴더 공유를 물으면 허용합니다(거절하면 `user declined directory sharing`으로 앱이 만들어지지 않음).
+- 바꾸기: `local\content\stage-waves.json`을 고치고 `"version"`을 쓴 적 없는 숫자로 올려 저장 → `curl.exe -s -X POST http://localhost:8081/actuator/stagecontent` → `"result":"CHANGED"`. 몇 초 안에 `curl.exe -s http://localhost:8082/actuator/stagecontent`의 `waveVersion`도 같아집니다(app-b 로그 `[Relay] content changed`, `[Content] 정의 교체 … reason=relay`).
+- 거절: version을 그대로 두고 내용만 바꾸면 `"result":"REJECTED"`, 두 앱 모두 이전 정의를 씁니다. 되돌리기는 파일을 원래대로 저장하고 다시 POST.
+- 안전망: POST 없이 저장만 해 두면 안전망 주기(기본 5분) 안에 두 앱이 따라옵니다(`reason=poll`).
+- 원래대로: `set STAGE_CONTENT_SOURCE=` 로 지우고 같은 `up -d` 명령을 다시 하면 classpath로 돌아갑니다.
+- IntelliJ 앱 하나로 해 보려면 실행 구성 환경 변수에 `PW01_STAGECONTENT_SOURCE=file`, `PW01_STAGECONTENT_FILE_PATH=local/content/stage-waves.json`(Spring 환경 변수 이름은 대시가 빠짐).
+
 ## 구조
 
 ```

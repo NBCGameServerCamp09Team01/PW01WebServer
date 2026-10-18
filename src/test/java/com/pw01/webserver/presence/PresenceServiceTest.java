@@ -3,7 +3,7 @@ package com.pw01.webserver.presence;
 import com.pw01.webserver.presence.event.PresenceChangedEvent;
 import com.pw01.webserver.presence.repository.RedisPresenceStore;
 import com.pw01.webserver.presence.service.PresenceService;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.RedisConnectionFailureException;
@@ -31,7 +31,7 @@ class PresenceServiceTest {
 
     private final RedisPresenceStore store = mock(RedisPresenceStore.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
-    private final PresenceService presence = new PresenceService(store, RealtimeServerId.of("srv-a"), events);
+    private final PresenceService presence = new PresenceService(store, ServerId.of("srv-a"), events);
 
     // 확인: 쓰기·지우기 실패는 삼킨다(경고 로그만), 이벤트도 내지 않는다
     @Test

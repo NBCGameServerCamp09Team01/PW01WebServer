@@ -1,11 +1,16 @@
 package com.pw01.webserver.stage.service;
 
 import com.pw01.webserver.common.error.NotFoundException;
+import com.pw01.webserver.common.master.MasterDataException;
 import com.pw01.webserver.common.master.MasterDataLoader;
+import com.pw01.webserver.stage.repository.ClasspathStageWaveSource;
+import com.pw01.webserver.stage.repository.StageWaveFile;
+import com.pw01.webserver.stage.repository.StageWaveSource;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,8 +23,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class StageCatalogTest {
 
-    private final StageCatalog catalog = new StageCatalog(new MasterDataLoader(
-            JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build()));
+    private final MasterDataLoader loader = new MasterDataLoader(
+            JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build());
+    private final StageCatalog catalog = new StageCatalog(loader, new ClasspathStageWaveSource(loader));
 
     // 확인: 지역 1 → 스테이지 1, 2 순서, 둘째의 requires는 첫째
     @Test
@@ -135,7 +141,7 @@ class StageCatalogTest {
     }
 
     // 확인(M9): 난이도별 구성. 난이도 0은 waves와 같고, 노말·하드는 같은 줄(몬스터 종류)·같은 수(수 배율 1.0)에
-    // 체력·공격력 배율만 다르다. 실패하면 StageCatalog.toStage·toEnemy, 실제 difficulties.json 값을 의심한다
+    // 체력·공격력 배율만 다르다. 실패하면 StageContent.toStage·toEnemy, 실제 difficulties.json 값을 의심한다
     @Test
     void 난이도별_구성() {
         StageDef stage = catalog.get("stage.01.01");
@@ -152,6 +158,63 @@ class StageCatalogTest {
                     .isEqualTo(stage.waves().stream()
                             .map(wave -> wave.enemies().stream().map(WaveEnemyDef::monsterId).toList()).toList());
         }
+    }
+
+    // 확인(실행 중 교체): 덩어리를 바꾸면 그 뒤 읽기는 새 값, 바꾸기 전에 받아 둔 덩어리는 옛 값 그대로(요청 하나 = 한 덩어리).
+    // 지금 덩어리가 expected가 아니면(그사이 다른 교체) 바꾸지 않는다.
+    // 실패하면 StageCatalog가 AtomicReference를 거치지 않고 값을 따로 들고 있는지, replace의 비교를 의심한다
+    @Test
+    void 덩어리_교체() {
+        StageContent before = catalog.content();
+        StageContent next = new StageContent(before.regions(), before.stagesById(), before.monsters(),
+                before.difficulties(), "w9-m2-d1");
+
+        assertThat(catalog.replace(before, next)).isTrue();
+
+        assertThat(catalog.content()).isSameAs(next);
+        assertThat(catalog.waveVersion()).isEqualTo("w9-m2-d1");
+        assertThat(before.waveVersion()).isEqualTo("w3-m2-d1");
+        assertThat(catalog.replace(before, before)).isFalse();
+        assertThat(catalog.content()).isSameAs(next);
+    }
+
+    // 확인(W2): 웨이브 정의만 출처(prod = S3)에서 오고, 나머지 셋은 리소스. 출처가 준 version이 waveVersion의 w에 들어간다.
+    // 출처의 내용이 틀리면 리소스 파일과 같은 규칙(모르는 칸 실패)으로 막혀 서버가 뜨지 않는다.
+    // 실패하면 StageCatalog 생성자가 웨이브를 loader.load(리소스)로 읽는지, MasterDataLoader.parse의 규칙을 의심한다
+    @Test
+    void 웨이브_정의는_출처에서() {
+        String resource = new String(loader.readClasspath("stage-waves.json"), StandardCharsets.UTF_8);
+        StageWaveSource version7 = fixedSource(resource.replaceFirst("\"version\": 3", "\"version\": 7"));
+        assertThat(new StageCatalog(loader, version7).waveVersion()).isEqualTo("w7-m2-d1");
+
+        StageWaveSource unknownField = fixedSource(resource.replaceFirst("\"version\": 3", "\"version\": 3, \"extra\": 1"));
+        assertThatThrownBy(() -> new StageCatalog(loader, unknownField))
+                .isInstanceOf(MasterDataException.class)
+                .hasMessageContaining("stage-waves.json");
+    }
+
+    private static StageWaveSource fixedSource(String json) {
+        return new StageWaveSource() {
+            @Override
+            public StageWaveFile read() {
+                return new StageWaveFile(json.getBytes(StandardCharsets.UTF_8), "\"etag\"");
+            }
+
+            @Override
+            public String describe() {
+                return "test";
+            }
+
+            @Override
+            public boolean reloadable() {
+                return false;
+            }
+
+            @Override
+            public String currentEtag() {
+                return "\"etag\"";
+            }
+        };
     }
 
 }

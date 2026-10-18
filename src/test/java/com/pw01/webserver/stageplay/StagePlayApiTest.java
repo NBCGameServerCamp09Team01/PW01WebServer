@@ -273,7 +273,7 @@ class StagePlayApiTest {
     }
 
     // 확인(M24 웨이브 구성): P1이 몬스터 값을 풀어 둔 구성·버전을 주고, 같은 값을 플레이에 저장한다(wave_count와 같은 길이).
-    // 실패하면 StageCatalog.toWaves(풀기), StagePlay.start, V9 칼럼, WavePlanCodec을 의심한다
+    // 실패하면 StageContent.toWaves(풀기), StagePlay.start, V9 칼럼, WavePlanCodec을 의심한다
     @Test
     void 시작하면_웨이브_구성과_버전을_주고_저장한다() throws Exception {
         String token = signupAndLogin("StagePlay21", "플레이21");
@@ -377,7 +377,7 @@ class StagePlayApiTest {
     }
 
     // 확인(M9 난이도): 하드(2)로 시작하면 difficulties.json의 하드 배율(체력 1.5·공격력 1.3)이 적 줄마다 들어가 플레이에 고정되고,
-    // 마리 수 배율 1.0이라 수는 그대로다. 실패하면 StagePlayService가 stage.wavesFor(difficulty)를 쓰는지, StageCatalog.toEnemy를 의심한다
+    // 마리 수 배율 1.0이라 수는 그대로다. 실패하면 StagePlayService가 stage.wavesFor(difficulty)를 쓰는지, StageContent.toEnemy를 의심한다
     @Test
     void 난이도로_시작하면_그_배율로_고정한다() throws Exception {
         String token = signupAndLogin("StagePlay27", "플레이27");

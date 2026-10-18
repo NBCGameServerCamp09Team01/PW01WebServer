@@ -1,5 +1,6 @@
 package com.pw01.webserver.realtime.service;
 
+import com.pw01.webserver.common.server.ServerId;
 import com.pw01.webserver.config.RealtimeRelayProperties;
 import com.pw01.webserver.realtime.dto.RealtimeRelayMessage;
 import org.slf4j.Logger;
@@ -30,18 +31,20 @@ public class RealtimeRelayListener implements MessageListener, SubscriptionListe
     private final RealtimeConnectionRegistry registry;
     private final RealtimeHeartbeat heartbeat;
     private final RealtimeRelayProperties properties;
-    private final RealtimeServerId serverId;
+    private final ServerId serverId;
+    private final RealtimeEventPublisher events;
     /** 앱 전체는 "모르는 칸이면 실패"다. 서버 사이 메시지는 새 서버가 칸을 더해도 옛 서버가 깨지지 않게 모르는 칸을 무시한다 */
     private final ObjectReader reader;
 
     public RealtimeRelayListener(RealtimeLocalDelivery delivery, RealtimeConnectionRegistry registry,
                                  RealtimeHeartbeat heartbeat, RealtimeRelayProperties properties,
-                                 RealtimeServerId serverId, JsonMapper jsonMapper) {
+                                 ServerId serverId, RealtimeEventPublisher events, JsonMapper jsonMapper) {
         this.delivery = delivery;
         this.registry = registry;
         this.heartbeat = heartbeat;
         this.properties = properties;
         this.serverId = serverId;
+        this.events = events;
         this.reader = jsonMapper.readerFor(RealtimeRelayMessage.class)
                 .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
@@ -75,6 +78,10 @@ public class RealtimeRelayListener implements MessageListener, SubscriptionListe
             deliver(channel, relayMessage);
         } else if (RealtimeRelayMessage.SESSION_CHECK.equals(relayMessage.kind())) {
             checkSessions(relayMessage);
+        } else if (RealtimeRelayMessage.CONTENT_CHANGED.equals(relayMessage.kind())) {
+            // 받기 스레드는 하나다. 정의 다시 읽기(S3)는 받는 쪽이 자기 스레드에서 한다 — 여기서는 이벤트만 낸다
+            log.info("[Relay] content changed origin={}", relayMessage.origin());
+            events.contentChanged(relayMessage.origin());
         } else {
             log.warn("[Relay] dropped: unknown kind={} channel={} origin={}", relayMessage.kind(), channel, relayMessage.origin());
         }

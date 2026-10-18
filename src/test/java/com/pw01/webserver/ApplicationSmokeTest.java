@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -67,6 +68,27 @@ class ApplicationSmokeTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.app.commit").value("local"))
                 .andExpect(jsonPath("$.build.version").exists());
+    }
+
+    /**
+     * 판 12: info에 지금 웨이브 정의(content)가 실리고, 관리 엔드포인트 stagecontent가 열리는가.
+     * 시험은 리소스 파일을 쓰므로 다시 읽기는 NOT_S3이고 다른 서버에 알리지 않는다.
+     * 404면 exposure.include의 stagecontent·StageContentEndpoint의 @Component, content가 없으면 StageContentInfoContributor를 의심한다
+     */
+    @Test
+    void stageContentIsVisible() throws Exception {
+        mockMvc.perform(get("/actuator/info"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.source").value("classpath:master/stage-waves.json"))
+                .andExpect(jsonPath("$.content.waveVersion").value("w3-m2-d1"));
+        mockMvc.perform(get("/actuator/stagecontent"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.waveVersion").value("w3-m2-d1"))
+                .andExpect(jsonPath("$.serverId").exists());
+        mockMvc.perform(post("/actuator/stagecontent"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result").value("NOT_S3"))
+                .andExpect(jsonPath("$.reason").doesNotExist());
     }
 
 }

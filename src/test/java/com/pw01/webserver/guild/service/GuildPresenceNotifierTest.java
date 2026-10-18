@@ -7,7 +7,7 @@ import com.pw01.webserver.realtime.event.RealtimeConnectedEvent;
 import com.pw01.webserver.realtime.event.RealtimeDisconnectedEvent;
 import com.pw01.webserver.realtime.service.RealtimeConnection;
 import com.pw01.webserver.realtime.service.RealtimeConnectionRegistry;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -45,7 +45,7 @@ class GuildPresenceNotifierTest {
     RealtimeConnectionRegistry registry;
 
     @Autowired
-    RealtimeServerId serverId;
+    ServerId serverId;
 
     @Autowired
     JdbcTemplate jdbc;

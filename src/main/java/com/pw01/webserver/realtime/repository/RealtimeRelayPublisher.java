@@ -3,7 +3,7 @@ package com.pw01.webserver.realtime.repository;
 import com.pw01.webserver.config.RealtimeRelayProperties;
 import com.pw01.webserver.realtime.dto.RealtimeMessage;
 import com.pw01.webserver.realtime.dto.RealtimeRelayMessage;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -26,10 +26,10 @@ public class RealtimeRelayPublisher {
     private final StringRedisTemplate redis;
     private final JsonMapper jsonMapper;
     private final RealtimeRelayProperties properties;
-    private final RealtimeServerId serverId;
+    private final ServerId serverId;
 
     public RealtimeRelayPublisher(StringRedisTemplate redis, JsonMapper jsonMapper, RealtimeRelayProperties properties,
-                                  RealtimeServerId serverId) {
+                                  ServerId serverId) {
         this.redis = redis;
         this.jsonMapper = jsonMapper;
         this.properties = properties;
@@ -52,6 +52,11 @@ public class RealtimeRelayPublisher {
 
     public void publishSessionCheck(Long accountId) {
         publish(properties.targetChannel(), RealtimeRelayMessage.sessionCheck(serverId.value(), List.of(accountId.toString())));
+    }
+
+    /** 모든 서버에 "웨이브 정의가 바뀌었다"(전체 채널, 게임에는 가지 않음) */
+    public void publishContentChanged() {
+        publish(properties.globalChannel(), RealtimeRelayMessage.contentChanged(serverId.value()));
     }
 
     private void publish(String channel, RealtimeRelayMessage relayMessage) {
