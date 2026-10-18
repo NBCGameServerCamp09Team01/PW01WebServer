@@ -20,14 +20,16 @@ public record StagePlayWaveResponse(int waveNumber, double restSeconds, boolean 
 
     /**
      * 적 한 줄. spawnGroup은 없으면 null(칸은 늘 있음).
-     * healthMultiplier·damageMultiplier는 난이도 배율(v1.4). 게임이 그 적의 체력(최대·현재)·공격력에 곱한다
+     * healthMultiplier·damageMultiplier는 난이도 배율(v1.4). 게임이 그 적의 체력(최대·현재)·공격력에 곱한다.
+     * affixes는 이 줄의 적 모두에 붙는 수식어 키(v1.5). 없으면 빈 배열(칸은 늘 있음). 효과는 게임의 수식어 카탈로그가 정한다
      */
     public record Enemy(String monsterId, int count, boolean boss, String spawnGroup, int goldReward,
-                        double goldDropChance, double healthMultiplier, double damageMultiplier) {
+                        double goldDropChance, double healthMultiplier, double damageMultiplier,
+                        List<String> affixes) {
 
         public static Enemy from(WaveEnemyDef enemy) {
             return new Enemy(enemy.monsterId(), enemy.count(), enemy.boss(), enemy.spawnGroup(), enemy.goldReward(),
-                    enemy.goldDropChance(), enemy.healthMultiplier(), enemy.damageMultiplier());
+                    enemy.goldDropChance(), enemy.healthMultiplier(), enemy.damageMultiplier(), enemy.affixes());
         }
 
     }

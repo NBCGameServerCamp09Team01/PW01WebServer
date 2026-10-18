@@ -205,4 +205,33 @@ class StageWaveMasterValidatorTest {
         assertDifficultyFails(withOverride(Map.of("2", new MultiplierOverride(null, 0.0, null, null))), "0보다");
     }
 
+    // ---- 수식어: W8 affixes ----
+
+    private static EnemyEntry withAffixes(List<String> affixes) {
+        return new EnemyEntry("monster.samurai", 2, null, null, null, null, null, affixes);
+    }
+
+    // 확인: 수식어 여러 개(점이 든 키, 상한 개수), 빈 목록은 통과. 서버가 모르는 키도 모양만 맞으면 통과
+    @Test
+    void 수식어_정상() {
+        StageWaveMasterFile ok = waves(wave(
+                withAffixes(List.of("affix.fire", "affix.fast", "affix.vampiric.lv2", "affix.new.unknown")),
+                withAffixes(List.of())));
+        assertThatCode(() -> StageWaveMasterValidator.validate(STAGES, ok, MONSTERS)).doesNotThrowAnyException();
+    }
+
+    // W8: 접두어 없음, 대문자·밑줄, 빈 키, 한 줄 안 중복, 상한 초과
+    @Test
+    void 수식어_값() {
+        assertFails(waves(wave(withAffixes(List.of("fire")))), MONSTERS, "stage-waves.json", "fire");
+        assertFails(waves(wave(withAffixes(List.of("affix.Fire")))), MONSTERS, "stage-waves.json", "affix.Fire");
+        assertFails(waves(wave(withAffixes(List.of("affix.fire_aura")))), MONSTERS, "stage-waves.json",
+                "affix.fire_aura");
+        assertFails(waves(wave(withAffixes(List.of("affix.")))), MONSTERS, "stage-waves.json", "수식어 키 모양");
+        assertFails(waves(wave(withAffixes(List.of("affix.fire", "affix.fire")))), MONSTERS, "stage-waves.json",
+                "겹칩니다");
+        assertFails(waves(wave(withAffixes(List.of("affix.a", "affix.b", "affix.c", "affix.d", "affix.e")))),
+                MONSTERS, "stage-waves.json", "4개까지");
+    }
+
 }

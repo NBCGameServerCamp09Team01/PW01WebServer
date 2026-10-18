@@ -11,6 +11,7 @@ import com.pw01.webserver.stage.master.StageWaveMasterFile.WaveEntry;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -24,6 +25,8 @@ import java.util.regex.Pattern;
  *        W4 웨이브마다 적 1줄 이상, 쉬는 시간·배율 ≥ 0 / W5 적: 아는 monsterId, count ≥ 1, 덮어쓴 골드·확률 범위, spawnGroup은 비어 있지 않음
  * 난이도(M9): W6 countByDifficulty 키는 있는 난이도이고 1 이상, 값 ≥ 1(0이면 난이도마다 몬스터 종류가 달라짐)
  *        W7 difficultyMultipliers 키는 있는 난이도이고 1 이상(0은 조절 없음), 적힌 배율 > 0
+ * 수식어: W8 affixes는 키 모양(affix.으로 시작, 영문 소문자·숫자·점, 1~64자), 한 줄 안에서 겹치지 않음, 한 줄에 MAX_AFFIXES개까지.
+ *        어떤 수식어가 있는지는 서버가 모른다(게임의 수식어 카탈로그) → 새 수식어도 이 파일만 바꿔 넣는다
  */
 public final class StageWaveMasterValidator {
 
@@ -32,6 +35,12 @@ public final class StageWaveMasterValidator {
 
     /** monster.으로 시작, 영문 소문자·숫자·점, 1~64자(stageId와 같은 규칙에 접두어) */
     private static final Pattern MONSTER_KEY = Pattern.compile("^monster\\.[a-z0-9.]{1,56}$");
+
+    /** affix.으로 시작, 영문 소문자·숫자·점, 1~64자(몬스터 키와 같은 규칙에 접두어) */
+    private static final Pattern AFFIX_KEY = Pattern.compile("^affix\\.[a-z0-9.]{1,58}$");
+
+    /** 적 한 줄의 수식어 수 상한(디아블로식 희귀 몬스터 3~4개). 실수로 긴 목록을 적는 것을 막는다 */
+    static final int MAX_AFFIXES = 4;
 
     private StageWaveMasterValidator() {
     }
@@ -193,6 +202,25 @@ public final class StageWaveMasterValidator {
                                 + countWhere);
                     }
                 }
+            }
+            validateAffixes(enemy.affixes(), where + " → " + id);
+        }
+    }
+
+    private static void validateAffixes(List<String> affixes, String where) {
+        if (affixes == null) {
+            return;
+        }
+        if (affixes.size() > MAX_AFFIXES) {
+            throw waves("affixes는 " + MAX_AFFIXES + "개까지입니다: " + where);
+        }
+        Set<String> seen = new HashSet<>();
+        for (String affix : affixes) {
+            if (affix == null || !AFFIX_KEY.matcher(affix).matches()) {
+                throw waves("수식어 키 모양이 틀렸습니다(affix.으로 시작, 영문 소문자·숫자·점, 1~64자): " + where + " → " + affix);
+            }
+            if (!seen.add(affix)) {
+                throw waves("수식어가 겹칩니다: " + where + " → " + affix);
             }
         }
     }

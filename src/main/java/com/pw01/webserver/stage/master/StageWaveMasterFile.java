@@ -54,14 +54,23 @@ public record StageWaveMasterFile(int version, List<StageWavesEntry> stages) {
      * @param boss              null이면 몬스터 정의 값
      * @param goldReward        null이면 몬스터 정의 값
      * @param goldDropChance    null이면 몬스터 정의 값
+     * @param affixes           이 줄의 적(마리 수 전부)에 붙는 수식어 키(affix.으로 시작). 모든 난이도에서 같다. null이면 수식어 없음.
+     *                          서버는 키 모양만 검사하고 효과는 게임의 수식어 카탈로그가 정한다(새 수식어는 이 파일만 바꿔 넣음)
      */
     public record EnemyEntry(String monsterId, Integer count, Map<String, Integer> countByDifficulty,
-                             String spawnGroup, Boolean boss, Integer goldReward, Double goldDropChance) {
+                             String spawnGroup, Boolean boss, Integer goldReward, Double goldDropChance,
+                             List<String> affixes) {
+
+        /** 수식어가 없는 줄(M9 모양) */
+        public EnemyEntry(String monsterId, Integer count, Map<String, Integer> countByDifficulty,
+                          String spawnGroup, Boolean boss, Integer goldReward, Double goldDropChance) {
+            this(monsterId, count, countByDifficulty, spawnGroup, boss, goldReward, goldDropChance, null);
+        }
 
         /** 난이도별 마리 수가 없는 줄(M24 모양) */
         public EnemyEntry(String monsterId, Integer count, String spawnGroup, Boolean boss, Integer goldReward,
                           Double goldDropChance) {
-            this(monsterId, count, null, spawnGroup, boss, goldReward, goldDropChance);
+            this(monsterId, count, null, spawnGroup, boss, goldReward, goldDropChance, null);
         }
 
     }

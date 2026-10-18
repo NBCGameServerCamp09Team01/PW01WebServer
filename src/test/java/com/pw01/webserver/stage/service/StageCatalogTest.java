@@ -193,6 +193,23 @@ class StageCatalogTest {
                 .hasMessageContaining("stage-waves.json");
     }
 
+    // 확인(수식어): 줄의 affixes가 모든 난이도 구성에 그대로(순서 유지) 들어가고, 칸이 없는 줄은 빈 목록.
+    // 실패하면 StageContent.toEnemy가 affixes를 넘기는지, WaveEnemyDef의 null → 빈 목록을 의심한다
+    @Test
+    void 수식어는_모든_난이도에_그대로() {
+        String resource = new String(loader.readClasspath("stage-waves.json"), StandardCharsets.UTF_8);
+        StageWaveSource withAffixes = fixedSource(resource.replaceFirst(
+                "\"count\": 2, \"goldReward\": 3 }",
+                "\"count\": 2, \"goldReward\": 3, \"affixes\": [\"affix.fire\", \"affix.fast\"] }"));
+        StageDef stage = new StageCatalog(loader, withAffixes).get("stage.01.01");
+
+        for (int difficulty = 0; difficulty < 3; difficulty++) {
+            assertThat(stage.wavesFor(difficulty).getFirst().enemies().getFirst().affixes())
+                    .containsExactly("affix.fire", "affix.fast");
+        }
+        assertThat(stage.waves().get(2).enemies()).allSatisfy(enemy -> assertThat(enemy.affixes()).isEmpty());
+    }
+
     private static StageWaveSource fixedSource(String json) {
         return new StageWaveSource() {
             @Override
