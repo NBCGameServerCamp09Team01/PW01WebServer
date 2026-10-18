@@ -5,6 +5,7 @@ import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 /**
@@ -33,6 +34,24 @@ public class S3StageWaveSource implements StageWaveSource, AutoCloseable {
             return new StageWaveFile(object.asByteArray(), object.response().eTag());
         } catch (S3Exception e) {
             throw new StageWaveSourceException(describe() + "을 읽지 못했습니다 status=" + e.statusCode()
+                    + hint(e.statusCode()), e);
+        } catch (SdkClientException e) {
+            throw new StageWaveSourceException(describe() + "에 닿지 못했습니다(자격 증명·지역·네트워크): "
+                    + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public boolean reloadable() {
+        return true;
+    }
+
+    @Override
+    public String currentEtag() {
+        try {
+            return s3.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build()).eTag();
+        } catch (S3Exception e) {
+            throw new StageWaveSourceException(describe() + "을 확인하지 못했습니다 status=" + e.statusCode()
                     + hint(e.statusCode()), e);
         } catch (SdkClientException e) {
             throw new StageWaveSourceException(describe() + "에 닿지 못했습니다(자격 증명·지역·네트워크): "

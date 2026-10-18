@@ -26,4 +26,14 @@ public class ClasspathStageWaveSource implements StageWaveSource {
         return "classpath:master/" + FILE_NAME;
     }
 
+    @Override
+    public boolean reloadable() {
+        return false;
+    }
+
+    @Override
+    public String currentEtag() {
+        throw new UnsupportedOperationException("리소스 파일은 다시 읽지 않습니다");
+    }
+
 }

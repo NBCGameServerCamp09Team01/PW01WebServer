@@ -204,6 +204,16 @@ class StageCatalogTest {
             public String describe() {
                 return "test";
             }
+
+            @Override
+            public boolean reloadable() {
+                return false;
+            }
+
+            @Override
+            public String currentEtag() {
+                return "\"etag\"";
+            }
         };
     }
 

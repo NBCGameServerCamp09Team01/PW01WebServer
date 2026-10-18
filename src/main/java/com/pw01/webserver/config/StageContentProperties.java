@@ -2,17 +2,19 @@ package com.pw01.webserver.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
 import java.util.regex.Pattern;
 
 /**
  * 웨이브 정의(stage-waves.json)를 읽는 곳 설정(pw01.stage-content.*). 비밀 값은 없다.
  * 기본(application.properties)은 classpath, 배포(application-prod.properties)는 s3. 틀린 값이면 서버가 뜨지 않는다.
  *
- * @param source 읽는 곳. classpath = 이미지 안 master/(로컬·시험), s3 = S3 객체 하나(prod)
- * @param s3     source가 s3일 때의 버킷·키·지역
+ * @param source     읽는 곳. classpath = 이미지 안 master/(로컬·시험), s3 = S3 객체 하나(prod)
+ * @param s3         source가 s3일 때의 버킷·키·지역
+ * @param safetyPoll s3일 때 바뀌었는지 스스로 확인하는 간격(안전망). 서버 사이 알림을 놓친 서버가 이 간격 안에 따라온다
  */
 @ConfigurationProperties("pw01.stage-content")
-public record StageContentProperties(Source source, S3 s3) {
+public record StageContentProperties(Source source, S3 s3, Duration safetyPoll) {
 
     /** S3 버킷 이름 규칙(소문자·숫자·'.'·'-', 3~63자, 처음과 끝은 소문자·숫자) */
     private static final Pattern BUCKET_NAME = Pattern.compile("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$");
@@ -30,6 +32,9 @@ public record StageContentProperties(Source source, S3 s3) {
     public StageContentProperties {
         if (source == null) {
             throw new IllegalArgumentException("pw01.stage-content.source는 classpath 또는 s3여야 합니다.");
+        }
+        if (safetyPoll == null || safetyPoll.compareTo(Duration.ofSeconds(10)) < 0) {
+            throw new IllegalArgumentException("pw01.stage-content.safety-poll은 10초 이상이어야 합니다: " + safetyPoll);
         }
         if (source == Source.S3) {
             if (s3 == null || s3.bucket() == null || !BUCKET_NAME.matcher(s3.bucket()).matches()) {

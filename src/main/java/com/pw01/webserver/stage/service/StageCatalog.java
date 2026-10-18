@@ -30,24 +30,44 @@ public class StageCatalog {
     private static final Logger log = LoggerFactory.getLogger(StageCatalog.class);
 
     private static final String FILE_NAME = "stages.json";
-    private static final String WAVES_FILE_NAME = "stage-waves.json";
+    /** 웨이브 정의 파일 이름(오류 메시지의 [master/…]에 쓰임) */
+    public static final String WAVES_FILE_NAME = "stage-waves.json";
     private static final String MONSTERS_FILE_NAME = "monsters.json";
     private static final String DIFFICULTIES_FILE_NAME = "difficulties.json";
 
     private final AtomicReference<StageContent> current;
+    /** 이미지 안 리소스 셋. 실행 중에 바뀌지 않으므로 다시 읽을 때도 이 값과 맞춰 검사한다 */
+    private final StageMasterFile stagesFile;
+    private final MonsterMasterFile monstersFile;
+    private final DifficultyMasterFile difficultiesFile;
+    /** 뜰 때 읽은 웨이브 파일(다시 읽기가 "지금 것과 같은가"를 비교하는 출발점) */
+    private final StageWaveFile loadedWaveFile;
 
     /**
      * 웨이브 정의는 waveSource(로컬·시험 = 리소스, prod = S3)에서, 나머지 셋은 리소스에서 읽는다.
      * S3를 못 읽거나 검사에 걸리면 예외 → 서버가 뜨지 않는다(배포 스크립트가 이전 컨테이너로 되돌림).
      */
     public StageCatalog(MasterDataLoader loader, StageWaveSource waveSource) {
-        StageWaveFile waves = waveSource.read();
-        this.current = new AtomicReference<>(StageContent.build(
-                loader.load(FILE_NAME, StageMasterFile.class),
-                loader.parse(WAVES_FILE_NAME, waves.content(), StageWaveMasterFile.class),
-                loader.load(MONSTERS_FILE_NAME, MonsterMasterFile.class),
-                loader.load(DIFFICULTIES_FILE_NAME, DifficultyMasterFile.class)));
+        this.stagesFile = loader.load(FILE_NAME, StageMasterFile.class);
+        this.monstersFile = loader.load(MONSTERS_FILE_NAME, MonsterMasterFile.class);
+        this.difficultiesFile = loader.load(DIFFICULTIES_FILE_NAME, DifficultyMasterFile.class);
+        this.loadedWaveFile = waveSource.read();
+        this.current = new AtomicReference<>(
+                build(loader.parse(WAVES_FILE_NAME, loadedWaveFile.content(), StageWaveMasterFile.class)));
         log.info("[Content] 정의 읽음 source={} waveVersion={}", waveSource.describe(), waveVersion());
+    }
+
+    /**
+     * 새 웨이브 파일로 덩어리를 만든다(이미지 안 셋과 함께 기동 검사 그대로). 틀리면 MasterDataException.
+     * 만들기만 하고 바꾸지는 않는다(바꾸기는 replace)
+     */
+    public StageContent build(StageWaveMasterFile wavesFile) {
+        return StageContent.build(stagesFile, wavesFile, monstersFile, difficultiesFile);
+    }
+
+    /** 뜰 때 읽은 웨이브 파일 */
+    public StageWaveFile loadedWaveFile() {
+        return loadedWaveFile;
     }
 
     /** 지금 정의 한 덩어리. 한 요청은 이것을 한 번만 부르고 그 덩어리로 끝까지 간다 */
@@ -57,7 +77,7 @@ public class StageCatalog {
 
     /**
      * 정의를 새 덩어리로 바꾼다. 지금 덩어리가 expected일 때만 바꾸고 true(그사이 다른 교체가 끼었으면 false).
-     * 정의 다시 읽기만 부른다. 이미 시작한 판은 시작 때 저장한 구성을 쓰므로 영향이 없다
+     * 정의 다시 읽기(StageContentReloader)만 부른다. 이미 시작한 판은 시작 때 저장한 구성을 쓰므로 영향이 없다
      */
     public boolean replace(StageContent expected, StageContent next) {
         return current.compareAndSet(expected, next);
