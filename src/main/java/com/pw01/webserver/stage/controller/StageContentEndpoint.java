@@ -4,6 +4,7 @@ import com.pw01.webserver.realtime.service.RealtimeNotifier;
 import com.pw01.webserver.common.server.ServerId;
 import com.pw01.webserver.stage.service.StageContentReloader;
 import com.pw01.webserver.stage.service.StageContentReloader.Outcome;
+import com.pw01.webserver.stage.service.StageContentReloader.Rejection;
 import com.pw01.webserver.stage.service.StageContentReloader.Result;
 import com.pw01.webserver.stage.service.StageContentReloader.Status;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
@@ -42,9 +43,16 @@ public class StageContentEndpoint {
         body.put("waveVersion", status.waveVersion());
         body.put("loadedAt", status.loadedAt().toString());
         body.put("lastCheckAt", status.lastCheckAt() == null ? null : status.lastCheckAt().toString());
-        body.put("lastRejected", status.lastRejected() == null ? null
-                : Map.of("at", status.lastRejected().at().toString(), "reason", status.lastRejected().reason()));
+        body.put("lastRejected", status.lastRejected() == null ? null : rejection(status.lastRejected()));
         body.put("serverId", serverId.value());
+        return body;
+    }
+
+    /** {at, reason} 순서를 지킨다(Map.of는 순서가 없어 응답마다 칸 순서가 바뀜, 명세 예시와 같게) */
+    private static Map<String, Object> rejection(Rejection rejection) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("at", rejection.at().toString());
+        body.put("reason", rejection.reason());
         return body;
     }
 

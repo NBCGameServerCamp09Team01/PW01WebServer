@@ -4,6 +4,8 @@
 #   게임·Postman → http://localhost:8080(로드 밸런서), 서버를 고를 때만 8081(app-a)·8082(app-b)
 # 비밀번호는 .env에서 읽는다(값을 이 파일에 쓰지 않는다). 끄기: ... stop  (down -v는 데이터를 지우므로 쓰지 않는다)
 # 자세한 쓰는 법: README "로컬 로드 밸런서 환경", 서버 사이 전달: 루트 docs/flows/realtime-relay.md
+# 웨이브 정의 재시작 없는 교체(판 12)를 두 앱에서 해 볼 때(파일 출처):
+#   STAGE_CONTENT_SOURCE=file docker compose -f compose.yaml -f compose.apps.yaml up -d --build   (PowerShell은 README)
 
 x-app: &app
   image: pw01-webserver:local
@@ -26,6 +28,17 @@ x-app: &app
     SPRING_DATA_REDIS_HOST: redis
     SPRING_DATA_REDIS_PORT: "6379"
     REDIS_PASSWORD: ${REDIS_PASSWORD:?.env 에 REDIS_PASSWORD 를 설정하세요}
+    # 웨이브 정의 읽는 곳(판 12). 기본은 이미지 안 리소스(classpath) — 지금까지와 같다.
+    # 재시작 없는 교체를 두 앱에서 해 보려면 STAGE_CONTENT_SOURCE=file 로 띄운다. 두 앱이 PC의 같은 파일
+    # local/content/stage-waves.json 을 본다(처음 한 번 리소스 파일을 복사, README "로컬 로드 밸런서 환경")
+    # (Spring 환경 변수 이름: 점 → 밑줄, 대시는 지움. pw01.stage-content.source = PW01_STAGECONTENT_SOURCE)
+    PW01_STAGECONTENT_SOURCE: ${STAGE_CONTENT_SOURCE:-classpath}
+    PW01_STAGECONTENT_FILE_PATH: /content/stage-waves.json
+    # 안전망 주기. 로컬에서는 알림을 놓친 경우를 빨리 보려고 짧게 둘 수 있다(10초 이상)
+    PW01_STAGECONTENT_SAFETYPOLL: ${STAGE_CONTENT_SAFETY_POLL:-5m}
+  volumes:
+    # 두 앱이 같은 폴더를 읽기 전용으로 본다(classpath면 쓰지 않음). 폴더가 없으면 Docker가 빈 폴더로 만든다
+    - ./local/content:/content:ro
 
 services:
   app-a:
