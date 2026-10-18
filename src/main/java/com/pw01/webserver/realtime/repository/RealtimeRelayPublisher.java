@@ -54,6 +54,11 @@ public class RealtimeRelayPublisher {
         publish(properties.targetChannel(), RealtimeRelayMessage.sessionCheck(serverId.value(), List.of(accountId.toString())));
     }
 
+    /** 모든 서버에 "웨이브 정의가 바뀌었다"(전체 채널, 게임에는 가지 않음) */
+    public void publishContentChanged() {
+        publish(properties.globalChannel(), RealtimeRelayMessage.contentChanged(serverId.value()));
+    }
+
     private void publish(String channel, RealtimeRelayMessage relayMessage) {
         if (!properties.enabled()) {
             return;

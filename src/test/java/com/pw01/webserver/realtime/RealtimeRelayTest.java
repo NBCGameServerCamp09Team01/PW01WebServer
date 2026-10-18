@@ -7,6 +7,7 @@ import com.pw01.webserver.realtime.dto.RealtimeMessageType;
 import com.pw01.webserver.realtime.repository.RealtimeRelayPublisher;
 import com.pw01.webserver.realtime.service.RealtimeConnection;
 import com.pw01.webserver.realtime.service.RealtimeConnectionRegistry;
+import com.pw01.webserver.realtime.service.RealtimeEventPublisher;
 import com.pw01.webserver.realtime.service.RealtimeHeartbeat;
 import com.pw01.webserver.realtime.service.RealtimeLocalDelivery;
 import com.pw01.webserver.realtime.service.RealtimeNotifier;
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
@@ -69,6 +71,7 @@ class RealtimeRelayTest {
 
     private RealtimeConnectionRegistry registryB;
     private RealtimeHeartbeat heartbeatB;
+    private RealtimeEventPublisher eventsB;
     private RealtimeRelayPublisher publisherB;
     private RedisMessageListenerContainer containerB;
 
@@ -76,9 +79,11 @@ class RealtimeRelayTest {
     void startServerB() throws Exception {
         registryB = new RealtimeConnectionRegistry();
         heartbeatB = mock(RealtimeHeartbeat.class);
+        eventsB = mock(RealtimeEventPublisher.class);
         RealtimeServerId serverIdB = RealtimeServerId.of("server-b");
         RealtimeLocalDelivery deliveryB = new RealtimeLocalDelivery(registryB, jsonMapper);
-        RealtimeRelayListener listenerB = new RealtimeRelayListener(deliveryB, registryB, heartbeatB, properties, serverIdB, jsonMapper);
+        RealtimeRelayListener listenerB = new RealtimeRelayListener(deliveryB, registryB, heartbeatB, properties, serverIdB,
+                eventsB, jsonMapper);
         publisherB = new RealtimeRelayPublisher(redis, jsonMapper, properties, serverIdB);
 
         containerB = new RedisMessageListenerContainer();
@@ -196,6 +201,15 @@ class RealtimeRelayTest {
         }).when(socket).sendMessage(any());
         registry.register(new RealtimeConnection(socket, accountId, TOKEN));
         return received;
+    }
+
+    // 확인(판 12): A가 웨이브 정의를 바꾼 뒤 보낸 CONTENT_CHANGED가 실제 Redis를 거쳐 B에 이벤트로 간다.
+    // 실패하면 publishContentChanged의 채널(전체), 리스너의 kind 분기를 의심한다
+    @Test
+    void 정의_바뀜_알림이_다른_서버로_간다() {
+        notifierA.notifyContentChanged();
+
+        verify(eventsB, timeout(5_000)).contentChanged(anyString());
     }
 
 }

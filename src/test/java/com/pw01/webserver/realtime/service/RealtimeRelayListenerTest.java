@@ -37,15 +37,17 @@ class RealtimeRelayListenerTest {
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private RealtimeConnectionRegistry registry;
     private RealtimeHeartbeat heartbeat;
+    private RealtimeEventPublisher events;
     private RealtimeRelayListener listener;
 
     @BeforeEach
     void setUp() {
         registry = new RealtimeConnectionRegistry();
         heartbeat = mock(RealtimeHeartbeat.class);
+        events = mock(RealtimeEventPublisher.class);
         RealtimeRelayProperties properties = RealtimeNotifierTest.relayProperties();
         listener = new RealtimeRelayListener(new RealtimeLocalDelivery(registry, jsonMapper), registry, heartbeat,
-                properties, new RealtimeServerId("thisserv"), jsonMapper);
+                properties, new RealtimeServerId("thisserv"), events, jsonMapper);
     }
 
     // 확인: 다른 서버가 길드 7 채널에 올린 메시지는 목록 가운데 이 서버에 붙은 사람에게만 같은 id로 간다
@@ -123,6 +125,20 @@ class RealtimeRelayListenerTest {
             listener.handle(TARGET, "not json".getBytes(StandardCharsets.UTF_8));
             listener.handle(TARGET, "{\"v\":1,\"kind\":\"WHAT\",\"origin\":\"x\"}".getBytes(StandardCharsets.UTF_8));
         }).doesNotThrowAnyException();
+    }
+
+    // 확인(판 12): 다른 서버의 CONTENT_CHANGED는 이벤트로만 넘기고(게임 연결에는 아무것도 보내지 않음), 자기 것은 버린다.
+    // 실패하면 handle의 kind 분기와 origin 거르기를 의심한다
+    @Test
+    void 정의_바뀜_알림은_이벤트로만() throws Exception {
+        WebSocketSession socket = connect(12L);
+
+        listener.handle(GLOBAL, json(RealtimeRelayMessage.contentChanged("otherser")));
+        listener.handle(GLOBAL, json(RealtimeRelayMessage.contentChanged("thisserv")));
+
+        verify(events).contentChanged("otherser");
+        verify(events, never()).contentChanged("thisserv");
+        verify(socket, never()).sendMessage(any(TextMessage.class));
     }
 
     private byte[] json(RealtimeRelayMessage relayMessage) {
