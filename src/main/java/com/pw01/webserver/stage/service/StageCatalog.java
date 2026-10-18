@@ -5,6 +5,10 @@ import com.pw01.webserver.stage.master.DifficultyMasterFile;
 import com.pw01.webserver.stage.master.MonsterMasterFile;
 import com.pw01.webserver.stage.master.StageMasterFile;
 import com.pw01.webserver.stage.master.StageWaveMasterFile;
+import com.pw01.webserver.stage.repository.StageWaveFile;
+import com.pw01.webserver.stage.repository.StageWaveSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -13,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 스테이지 정보: master/stages.json·stage-waves.json·monsters.json·difficulties.json을 기동 때 읽고 검사해 들고 있다(틀리면 기동 실패).
+ * stage-waves.json은 StageWaveSource(prod = S3)에서, 나머지 셋은 리소스에서 읽는다.
  * "이 스테이지가 있나, 웨이브가 몇 개이고 무엇이 나오나, 지역·스테이지 순서는, 어떤 난이도가 있나"에 답한다.
  * 값은 정의 한 덩어리(StageContent)에 있고, 정의를 바꿀 때는 새 덩어리로 참조를 통째로 바꾼다(replace).
  * 읽는 쪽은 반쯤 바뀐 값을 보지 않는다. 한 요청 안에서 두 번 이상 읽는 곳은 content()를 한 번 받아 끝까지 쓴다
@@ -22,6 +27,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @Component
 public class StageCatalog {
 
+    private static final Logger log = LoggerFactory.getLogger(StageCatalog.class);
+
     private static final String FILE_NAME = "stages.json";
     private static final String WAVES_FILE_NAME = "stage-waves.json";
     private static final String MONSTERS_FILE_NAME = "monsters.json";
@@ -29,12 +36,18 @@ public class StageCatalog {
 
     private final AtomicReference<StageContent> current;
 
-    public StageCatalog(MasterDataLoader loader) {
+    /**
+     * 웨이브 정의는 waveSource(로컬·시험 = 리소스, prod = S3)에서, 나머지 셋은 리소스에서 읽는다.
+     * S3를 못 읽거나 검사에 걸리면 예외 → 서버가 뜨지 않는다(배포 스크립트가 이전 컨테이너로 되돌림).
+     */
+    public StageCatalog(MasterDataLoader loader, StageWaveSource waveSource) {
+        StageWaveFile waves = waveSource.read();
         this.current = new AtomicReference<>(StageContent.build(
                 loader.load(FILE_NAME, StageMasterFile.class),
-                loader.load(WAVES_FILE_NAME, StageWaveMasterFile.class),
+                loader.parse(WAVES_FILE_NAME, waves.content(), StageWaveMasterFile.class),
                 loader.load(MONSTERS_FILE_NAME, MonsterMasterFile.class),
                 loader.load(DIFFICULTIES_FILE_NAME, DifficultyMasterFile.class)));
+        log.info("[Content] 정의 읽음 source={} waveVersion={}", waveSource.describe(), waveVersion());
     }
 
     /** 지금 정의 한 덩어리. 한 요청은 이것을 한 번만 부르고 그 덩어리로 끝까지 간다 */

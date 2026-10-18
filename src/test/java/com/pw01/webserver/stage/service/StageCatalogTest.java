@@ -1,11 +1,16 @@
 package com.pw01.webserver.stage.service;
 
 import com.pw01.webserver.common.error.NotFoundException;
+import com.pw01.webserver.common.master.MasterDataException;
 import com.pw01.webserver.common.master.MasterDataLoader;
+import com.pw01.webserver.stage.repository.ClasspathStageWaveSource;
+import com.pw01.webserver.stage.repository.StageWaveFile;
+import com.pw01.webserver.stage.repository.StageWaveSource;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,8 +23,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class StageCatalogTest {
 
-    private final StageCatalog catalog = new StageCatalog(new MasterDataLoader(
-            JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build()));
+    private final MasterDataLoader loader = new MasterDataLoader(
+            JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build());
+    private final StageCatalog catalog = new StageCatalog(loader, new ClasspathStageWaveSource(loader));
 
     // 확인: 지역 1 → 스테이지 1, 2 순서, 둘째의 requires는 첫째
     @Test
@@ -170,6 +176,35 @@ class StageCatalogTest {
         assertThat(before.waveVersion()).isEqualTo("w3-m2-d1");
         assertThat(catalog.replace(before, before)).isFalse();
         assertThat(catalog.content()).isSameAs(next);
+    }
+
+    // 확인(W2): 웨이브 정의만 출처(prod = S3)에서 오고, 나머지 셋은 리소스. 출처가 준 version이 waveVersion의 w에 들어간다.
+    // 출처의 내용이 틀리면 리소스 파일과 같은 규칙(모르는 칸 실패)으로 막혀 서버가 뜨지 않는다.
+    // 실패하면 StageCatalog 생성자가 웨이브를 loader.load(리소스)로 읽는지, MasterDataLoader.parse의 규칙을 의심한다
+    @Test
+    void 웨이브_정의는_출처에서() {
+        String resource = new String(loader.readClasspath("stage-waves.json"), StandardCharsets.UTF_8);
+        StageWaveSource version7 = fixedSource(resource.replaceFirst("\"version\": 3", "\"version\": 7"));
+        assertThat(new StageCatalog(loader, version7).waveVersion()).isEqualTo("w7-m2-d1");
+
+        StageWaveSource unknownField = fixedSource(resource.replaceFirst("\"version\": 3", "\"version\": 3, \"extra\": 1"));
+        assertThatThrownBy(() -> new StageCatalog(loader, unknownField))
+                .isInstanceOf(MasterDataException.class)
+                .hasMessageContaining("stage-waves.json");
+    }
+
+    private static StageWaveSource fixedSource(String json) {
+        return new StageWaveSource() {
+            @Override
+            public StageWaveFile read() {
+                return new StageWaveFile(json.getBytes(StandardCharsets.UTF_8), "\"etag\"");
+            }
+
+            @Override
+            public String describe() {
+                return "test";
+            }
+        };
     }
 
 }
