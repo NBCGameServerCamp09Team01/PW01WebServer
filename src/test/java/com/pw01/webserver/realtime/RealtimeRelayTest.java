@@ -24,6 +24,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -74,6 +75,7 @@ class RealtimeRelayTest {
     private RealtimeEventPublisher eventsB;
     private RealtimeRelayPublisher publisherB;
     private RedisMessageListenerContainer containerB;
+    private ThreadPoolTaskExecutor relayExecutorB;
 
     @BeforeEach
     void startServerB() throws Exception {
@@ -86,8 +88,16 @@ class RealtimeRelayTest {
                 eventsB, jsonMapper);
         publisherB = new RealtimeRelayPublisher(redis, jsonMapper, properties, serverIdB);
 
+        // 받기 스레드 하나(RealtimeRelayConfig와 같게). 컨테이너 기본은 메시지마다 새 스레드라 "순서대로" 시험이 가끔 깨진다(10/18 CI)
+        relayExecutorB = new ThreadPoolTaskExecutor();
+        relayExecutorB.setCorePoolSize(1);
+        relayExecutorB.setMaxPoolSize(1);
+        relayExecutorB.setThreadNamePrefix("relay-b-");
+        relayExecutorB.initialize();
+
         containerB = new RedisMessageListenerContainer();
         containerB.setConnectionFactory(connectionFactory);
+        containerB.setTaskExecutor(relayExecutorB);
         containerB.addMessageListener(listenerB, List.of(new ChannelTopic(properties.globalChannel()),
                 new ChannelTopic(properties.targetChannel()), new PatternTopic(properties.guildChannelPrefix() + "*")));
         containerB.afterPropertiesSet();
@@ -105,6 +115,7 @@ class RealtimeRelayTest {
     void stopServerB() throws Exception {
         containerB.stop();
         containerB.destroy();
+        relayExecutorB.shutdown();
     }
 
     // 확인: A에서 길드 7에 보내면 B에 붙은 길드원만 같은 id로 받는다(다른 사람은 못 받음)
