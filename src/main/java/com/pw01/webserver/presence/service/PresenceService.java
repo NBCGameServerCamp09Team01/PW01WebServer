@@ -2,7 +2,7 @@ package com.pw01.webserver.presence.service;
 
 import com.pw01.webserver.presence.event.PresenceChangedEvent;
 import com.pw01.webserver.presence.repository.RedisPresenceStore;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -24,10 +24,10 @@ public class PresenceService {
     private static final Logger log = LoggerFactory.getLogger(PresenceService.class);
 
     private final RedisPresenceStore store;
-    private final RealtimeServerId serverId;
+    private final ServerId serverId;
     private final ApplicationEventPublisher events;
 
-    public PresenceService(RedisPresenceStore store, RealtimeServerId serverId, ApplicationEventPublisher events) {
+    public PresenceService(RedisPresenceStore store, ServerId serverId, ApplicationEventPublisher events) {
         this.store = store;
         this.serverId = serverId;
         this.events = events;

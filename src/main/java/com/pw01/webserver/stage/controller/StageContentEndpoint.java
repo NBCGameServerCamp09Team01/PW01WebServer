@@ -1,7 +1,7 @@
 package com.pw01.webserver.stage.controller;
 
 import com.pw01.webserver.realtime.service.RealtimeNotifier;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import com.pw01.webserver.stage.service.StageContentReloader;
 import com.pw01.webserver.stage.service.StageContentReloader.Outcome;
 import com.pw01.webserver.stage.service.StageContentReloader.Result;
@@ -26,9 +26,9 @@ public class StageContentEndpoint {
 
     private final StageContentReloader reloader;
     private final RealtimeNotifier notifier;
-    private final RealtimeServerId serverId;
+    private final ServerId serverId;
 
-    public StageContentEndpoint(StageContentReloader reloader, RealtimeNotifier notifier, RealtimeServerId serverId) {
+    public StageContentEndpoint(StageContentReloader reloader, RealtimeNotifier notifier, ServerId serverId) {
         this.reloader = reloader;
         this.notifier = notifier;
         this.serverId = serverId;

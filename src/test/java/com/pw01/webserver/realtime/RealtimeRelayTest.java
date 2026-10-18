@@ -12,7 +12,7 @@ import com.pw01.webserver.realtime.service.RealtimeHeartbeat;
 import com.pw01.webserver.realtime.service.RealtimeLocalDelivery;
 import com.pw01.webserver.realtime.service.RealtimeNotifier;
 import com.pw01.webserver.realtime.service.RealtimeRelayListener;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import io.lettuce.core.api.async.BaseRedisAsyncCommands;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,7 +80,7 @@ class RealtimeRelayTest {
         registryB = new RealtimeConnectionRegistry();
         heartbeatB = mock(RealtimeHeartbeat.class);
         eventsB = mock(RealtimeEventPublisher.class);
-        RealtimeServerId serverIdB = RealtimeServerId.of("server-b");
+        ServerId serverIdB = ServerId.of("server-b");
         RealtimeLocalDelivery deliveryB = new RealtimeLocalDelivery(registryB, jsonMapper);
         RealtimeRelayListener listenerB = new RealtimeRelayListener(deliveryB, registryB, heartbeatB, properties, serverIdB,
                 eventsB, jsonMapper);

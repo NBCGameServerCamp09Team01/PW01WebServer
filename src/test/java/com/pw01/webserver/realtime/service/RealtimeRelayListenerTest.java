@@ -1,5 +1,6 @@
 package com.pw01.webserver.realtime.service;
 
+import com.pw01.webserver.common.server.ServerId;
 import com.pw01.webserver.config.RealtimeRelayProperties;
 import com.pw01.webserver.realtime.dto.RealtimeMessage;
 import com.pw01.webserver.realtime.dto.RealtimeMessageType;
@@ -47,7 +48,7 @@ class RealtimeRelayListenerTest {
         events = mock(RealtimeEventPublisher.class);
         RealtimeRelayProperties properties = RealtimeNotifierTest.relayProperties();
         listener = new RealtimeRelayListener(new RealtimeLocalDelivery(registry, jsonMapper), registry, heartbeat,
-                properties, new RealtimeServerId("thisserv"), events, jsonMapper);
+                properties, ServerId.of("thisserv"), events, jsonMapper);
     }
 
     // 확인: 다른 서버가 길드 7 채널에 올린 메시지는 목록 가운데 이 서버에 붙은 사람에게만 같은 id로 간다

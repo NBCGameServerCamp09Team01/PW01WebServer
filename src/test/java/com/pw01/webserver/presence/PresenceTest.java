@@ -6,7 +6,7 @@ import com.pw01.webserver.presence.service.PresenceService;
 import com.pw01.webserver.realtime.event.RealtimeAliveEvent;
 import com.pw01.webserver.realtime.event.RealtimeConnectedEvent;
 import com.pw01.webserver.realtime.event.RealtimeDisconnectedEvent;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -41,7 +41,7 @@ class PresenceTest {
     PresenceService presence;
 
     @Autowired
-    RealtimeServerId serverId;
+    ServerId serverId;
 
     @Autowired
     StringRedisTemplate redis;

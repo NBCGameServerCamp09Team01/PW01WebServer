@@ -1,5 +1,6 @@
 package com.pw01.webserver.realtime.service;
 
+import com.pw01.webserver.common.server.ServerId;
 import com.pw01.webserver.realtime.event.RealtimeAliveEvent;
 import com.pw01.webserver.realtime.event.RealtimeConnectedEvent;
 import com.pw01.webserver.realtime.event.RealtimeDisconnectedEvent;
@@ -19,9 +20,9 @@ public class RealtimeEventPublisher {
     private static final Logger log = LoggerFactory.getLogger(RealtimeEventPublisher.class);
 
     private final ApplicationEventPublisher publisher;
-    private final RealtimeServerId serverId;
+    private final ServerId serverId;
 
-    public RealtimeEventPublisher(ApplicationEventPublisher publisher, RealtimeServerId serverId) {
+    public RealtimeEventPublisher(ApplicationEventPublisher publisher, ServerId serverId) {
         this.publisher = publisher;
         this.serverId = serverId;
     }

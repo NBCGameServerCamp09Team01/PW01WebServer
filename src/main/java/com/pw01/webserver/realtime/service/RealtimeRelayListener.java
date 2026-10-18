@@ -1,5 +1,6 @@
 package com.pw01.webserver.realtime.service;
 
+import com.pw01.webserver.common.server.ServerId;
 import com.pw01.webserver.config.RealtimeRelayProperties;
 import com.pw01.webserver.realtime.dto.RealtimeRelayMessage;
 import org.slf4j.Logger;
@@ -30,14 +31,14 @@ public class RealtimeRelayListener implements MessageListener, SubscriptionListe
     private final RealtimeConnectionRegistry registry;
     private final RealtimeHeartbeat heartbeat;
     private final RealtimeRelayProperties properties;
-    private final RealtimeServerId serverId;
+    private final ServerId serverId;
     private final RealtimeEventPublisher events;
     /** 앱 전체는 "모르는 칸이면 실패"다. 서버 사이 메시지는 새 서버가 칸을 더해도 옛 서버가 깨지지 않게 모르는 칸을 무시한다 */
     private final ObjectReader reader;
 
     public RealtimeRelayListener(RealtimeLocalDelivery delivery, RealtimeConnectionRegistry registry,
                                  RealtimeHeartbeat heartbeat, RealtimeRelayProperties properties,
-                                 RealtimeServerId serverId, RealtimeEventPublisher events, JsonMapper jsonMapper) {
+                                 ServerId serverId, RealtimeEventPublisher events, JsonMapper jsonMapper) {
         this.delivery = delivery;
         this.registry = registry;
         this.heartbeat = heartbeat;

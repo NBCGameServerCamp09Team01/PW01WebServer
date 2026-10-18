@@ -3,7 +3,7 @@ package com.pw01.webserver.realtime.repository;
 import com.pw01.webserver.config.RealtimeRelayProperties;
 import com.pw01.webserver.realtime.dto.RealtimeMessage;
 import com.pw01.webserver.realtime.dto.RealtimeRelayMessage;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -26,10 +26,10 @@ public class RealtimeRelayPublisher {
     private final StringRedisTemplate redis;
     private final JsonMapper jsonMapper;
     private final RealtimeRelayProperties properties;
-    private final RealtimeServerId serverId;
+    private final ServerId serverId;
 
     public RealtimeRelayPublisher(StringRedisTemplate redis, JsonMapper jsonMapper, RealtimeRelayProperties properties,
-                                  RealtimeServerId serverId) {
+                                  ServerId serverId) {
         this.redis = redis;
         this.jsonMapper = jsonMapper;
         this.properties = properties;

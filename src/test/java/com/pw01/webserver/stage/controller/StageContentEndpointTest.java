@@ -2,7 +2,7 @@ package com.pw01.webserver.stage.controller;
 
 import com.pw01.webserver.common.master.MasterDataLoader;
 import com.pw01.webserver.realtime.service.RealtimeNotifier;
-import com.pw01.webserver.realtime.service.RealtimeServerId;
+import com.pw01.webserver.common.server.ServerId;
 import com.pw01.webserver.stage.repository.StageWaveFile;
 import com.pw01.webserver.stage.repository.StageWaveSource;
 import com.pw01.webserver.stage.service.StageCatalog;
@@ -41,7 +41,7 @@ class StageContentEndpointTest {
         StageCatalog catalog = new StageCatalog(loader, source);
         notifier = mock(RealtimeNotifier.class);
         endpoint = new StageContentEndpoint(new StageContentReloader(catalog, source, loader), notifier,
-                RealtimeServerId.of("srv-a"));
+                ServerId.of("srv-a"));
     }
 
     // 확인: 바뀌면 CHANGED + 다른 서버에 알림, reason 칸 없음
