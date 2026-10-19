@@ -2,7 +2,7 @@
 
 ![ProjectWarrior](docs/images/banner.jpg)
 
-**ProjectWarrior(UE 5.8 액션 게임)의 게임 서버입니다.** 게임이 보낸 계정·결과·성장·소셜 요청을 검증·판정하고 MySQL·Redis에 저장합니다. 보상·포인트·해금·웨이브 구성·난이도 배율의 **원본은 서버**이고, 게임은 "무엇을 했는지"만 보냅니다.
+**ProjectWarrior(UE 5.8 액션 게임)의 게임 서버입니다.** 게임이 보낸 계정·결과·성장·소셜 요청을 검증·판정하고 MySQL·Redis에 저장합니다. 보상·포인트·해금·웨이브 구성·난이도 배율의 **원본은 서버**이고, 게임은 "플레이 결과"만 보냅니다.
 
 - 작업 공간 루트: [PW01](https://github.com/NBCGameServerCamp09Team01/PW01) (이 폴더는 루트 안의 `PW01\PW01WebServer\`) · 게임: [ProjectWarrior](https://github.com/NBCGameServerCamp09Team01/ProjectWarrior)
 - 게임과의 약속(API·Redis 키·오류 형식): 루트 `docs/contracts/` — **코드보다 명세를 먼저 고칩니다**
@@ -26,15 +26,15 @@
 | 가입·로그인·세션(하트비트·로그아웃·다른 곳 로그인) | A1~A5 `/auth/*` ([auth-api](https://github.com/NBCGameServerCamp09Team01/PW01/blob/main/docs/contracts/auth-api.md)) | `auth` |
 | 계정 스냅샷(레벨·경험치·포인트·스탯·스킬·`version`) | A3 `GET /accounts/me` (account-api) | `account` |
 | 스테이지 정의·내 진행, 웨이브·몬스터·난이도·수식어 정의 | ST1 `GET /stages`, ST2 `GET /accounts/me/stages` (stage-api) | `stage` |
-| 판 시작(웨이브 구성·난이도 고정)·현재 판·포기·체크포인트 | P1~P5, C1·C2 `/accounts/me/stage-plays…` (stage-play-api) | `stageplay` |
+| 스테이지 시작(웨이브 구성·난이도 고정)·현재 스테이지·포기·체크포인트 | P1~P5, C1·C2 `/accounts/me/stage-plays…` (stage-play-api) | `stageplay` |
 | 결과 제출·보상·누적 통계 | R1·R2 `…/{stagePlayId}/result` (result-api) | `stageresult` |
 | 스탯 투자 / 스킬 해금·조건 판정 | T1 `/accounts/me/stat-investments` / K1·K2 `/accounts/me/skill-unlocks`·`/skills` | `stat` / `skill`·`progression` |
 | 랭킹(스테이지·지역·전체·진행, 전체·주간, 난이도별) | RK1~RK8 `/rankings/*` (ranking-api) | `ranking` |
 | 길드(찾기·만들기·가입 신청·승인·거절·탈퇴·해체) | G1~G12 `/guilds`, `/accounts/me/guild…` (guild-api) | `guild` |
 | 전체·길드 채팅(횟수 제한·도배 쉬기·길드 내역) | CH1~CH3 `/chats/*` (chat-api) | `chat` |
-| 실시간 연결·서버 사이 전달·접속 상태 | WebSocket `/realtime` (realtime-api) | `realtime`, `presence` |
+| 실시간 연결·서버 간 메시지 중계·접속 상태 | WebSocket `/realtime` (realtime-api) | `realtime`, `presence` |
 
-모든 기능이 같이 쓰는 뼈대(`common`): 요청 번호(`X-Request-Id`) · 인증 인터셉터(세션 10분 연장) · 공통 오류 응답(`{code, message, path, retryable, errors}`) · **같은 `requestId`는 한 번만**(`IdempotencyService`) · 진행 저장(부딪히면 다시) · 마스터 파일 검사(틀리면 기동 실패) · 서버 번호.
+공통 모듈(`common`): 요청 번호(`X-Request-Id`) · 인증 인터셉터(세션 10분 연장) · 공통 오류 응답(`{code, message, path, retryable, errors}`) · **같은 `requestId`는 한 번만**(`IdempotencyService`) · 진행 저장(부딪히면 다시) · 마스터 파일 검사(틀리면 기동 실패) · 서버 번호.
 
 ```mermaid
 flowchart LR
@@ -150,11 +150,11 @@ curl.exe -si http://localhost:8080/health
 - 앱은 `local` 프로필로 뜨고 `.env`의 `MYSQL_PASSWORD`·`REDIS_PASSWORD`를 씁니다(따로 만들 파일 없음). 상태 확인은 `/health`, `/actuator/health` 모두 앱 포트입니다.
 - 로그: `docker compose -f compose.yaml -f compose.apps.yaml logs -f app-a app-b`. 요청 하나는 `… logs app-a app-b | findstr <requestId>`. 뜰 때 찍히는 `[Relay] serverId=…`로 어느 앱인지 압니다.
 - 서버를 정해 붙기: 게임 Standalone 실행 인자 `-ServerUrl=http://localhost:8082`, Postman WebSocket `ws://localhost:8082/realtime`(헤더 `Authorization: Bearer <토큰>`).
-- 앱 하나 멈춤 시험: `… stop app-b` → 요청이 모두 app-a로 → `… start app-b` → 뜬 뒤 10초쯤 지나면 다시 번갈아 갑니다(nginx가 실패한 앱을 잠깐 빼 두었다가 다시 시도). nginx를 다시 띄울 때는 두 앱이 떠 있어야 합니다.
+- 앱 하나 멈춤 테스트: `… stop app-b` → 요청이 모두 app-a로 → `… start app-b` → 뜬 뒤 10초쯤 지나면 다시 번갈아 갑니다(nginx가 실패한 앱을 잠깐 빼 두었다가 다시 시도). nginx를 다시 띄울 때는 두 앱이 떠 있어야 합니다.
 - 코드를 고쳤으면 첫 줄을 다시(`--build`). 끝낼 때는 `… stop`(`down -v`는 데이터를 지웁니다).
 - 4번의 IntelliJ 앱과 8080이 겹치므로 먼저 멈춥니다. PC 메모리 약 2.5~3GB를 씁니다.
 
-**웨이브 정의를 재시작 없이 바꿔 보기(파일 출처, 선택)** — 배포 서버는 웨이브 구성(`stage-waves.json`)을 S3에서 읽고 재시작 없이 바꿉니다(루트 `docs/contracts/stage-api.md` "웨이브 구성 바꾸기"). 로컬에서는 S3 대신 PC의 파일 하나를 두 앱이 함께 보게 해서 같은 흐름(다시 읽기 신호 → 다른 앱에 알림 → 교체, 검사 실패면 유지, 5분 안전망)을 AWS 없이 해 봅니다. 기본은 지금처럼 이미지 안 리소스(classpath)라 켜지 않으면 아무것도 달라지지 않습니다.
+**웨이브 정의를 재시작 없이 바꿔 보기(파일 출처, 선택)** — 배포 서버는 웨이브 구성(`stage-waves.json`)을 S3에서 읽고 재시작 없이 바꿉니다(루트 `docs/contracts/stage-api.md` "웨이브 구성 바꾸기"). 로컬에서는 S3 대신 PC의 파일 하나를 두 앱이 함께 보게 해서 같은 흐름(다시 읽기 신호 → 다른 앱에 알림 → 교체, 검사 실패면 유지, 5분 주기 폴링(백업용))을 AWS 없이 해 봅니다. 기본은 지금처럼 이미지 안 리소스(classpath)라 켜지 않으면 아무것도 달라지지 않습니다.
 
 ```bat
 :: 처음 한 번: 리소스 파일을 복사(local/content 는 git이 무시)
@@ -200,13 +200,13 @@ src/main/resources/
 ## API
 
 - 명세 원본은 루트 `docs/contracts/`입니다. 공통 규칙(경로는 기능 이름부터·버전 없음, 시각 UTC, 오류 응답, 재전송, 모르는 필드는 400)은 그 폴더의 README.md에 있습니다.
-- Swagger UI는 실행 중인 서버를 확인하는 보기입니다(http://localhost:8080/swagger-ui/index.html). 명세와 다르면 명세가 기준입니다.
+- Swagger UI는 실행 중인 서버를 확인하는 도구입니다(http://localhost:8080/swagger-ui/index.html). 명세와 다르면 명세가 기준입니다.
 
 ## 검증
 
 | 항목 | 값 | 측정 |
 |---|---|---|
-| 자동 시험 | `.\gradlew build` 465개 통과, 실패 0 | 2026-10-16 (#33 병합 뒤) |
+| 자동 테스트 | `.\gradlew build` 465개 통과, 실패 0 | 2026-10-16 (#33 병합 뒤) |
 | 동시성 예 | 같은 계정 동시 채팅 10번 → 정확히 5번 통과(Lua 한 번 판단) | `RedisChatRateLimiterTest` |
 | 랭킹 조회 | 계정 1만·클리어 5만에서 실행 계획 비교 | [docs/decisions/0002-랭킹-저장-방식.md](docs/decisions/0002-랭킹-저장-방식.md) |
-| 길드 동시성 | 정원·중복 가입 경합 시험 | [docs/decisions/0003-guild-concurrency.md](docs/decisions/0003-guild-concurrency.md) |
+| 길드 동시성 | 정원·중복 가입 경합 테스트 | [docs/decisions/0003-guild-concurrency.md](docs/decisions/0003-guild-concurrency.md) |
