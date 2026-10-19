@@ -150,7 +150,8 @@ public record StageContent(List<RegionDef> regions, Map<String, StageDef> stages
                 Objects.requireNonNullElse(enemy.goldReward(), monster.goldReward()),
                 Objects.requireNonNullElse(enemy.goldDropChance(), monster.goldDropChance()),
                 multipliers.enemyHealthMultiplier(),
-                multipliers.enemyDamageMultiplier());
+                multipliers.enemyDamageMultiplier(),
+                enemy.affixes());
     }
 
     public Optional<StageDef> find(String stageId) {

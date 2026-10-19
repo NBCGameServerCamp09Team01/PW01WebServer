@@ -27,13 +27,14 @@ public record StageWavePreviewResponse(int waveNumber, boolean bossWave, List<En
     /**
      * 적 한 줄. 이름은 ST1 monsters에서 찾는다.
      *
-     * @param count  난이도 0의 마리 수(= counts[0], v1.3 호환)
-     * @param counts 난이도별 마리 수(번호 순, v1.4). 게임은 고른 난이도 칸을 보이고 직접 계산하지 않는다
+     * @param count   난이도 0의 마리 수(= counts[0], v1.3 호환)
+     * @param counts  난이도별 마리 수(번호 순, v1.4). 게임은 고른 난이도 칸을 보이고 직접 계산하지 않는다
+     * @param affixes 이 줄의 수식어 키(stage-api.md v1.6). 모든 난이도가 같다. 없으면 빈 배열
      */
-    public record Enemy(String monsterId, int count, List<Integer> counts, boolean boss) {
+    public record Enemy(String monsterId, int count, List<Integer> counts, boolean boss, List<String> affixes) {
 
         public static Enemy from(WaveEnemyDef enemy, List<Integer> counts) {
-            return new Enemy(enemy.monsterId(), enemy.count(), counts, enemy.boss());
+            return new Enemy(enemy.monsterId(), enemy.count(), counts, enemy.boss(), enemy.affixes());
         }
 
     }
