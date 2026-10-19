@@ -1,21 +1,52 @@
 # PW01WebServer
 
-ProjectWarrior(UE 5.8.3 싱글 게임)의 Spring Boot 백엔드입니다. 게임이 보낸 계정·결과·성장 요청을 검증·판정하고 MySQL·Redis에 저장합니다.
+![ProjectWarrior](docs/images/banner.jpg)
 
-- 작업 공간 루트: https://github.com/NBCGameServerCamp09Team01/PW01 (이 폴더는 루트 안의 `PW01\PW01WebServer\`)
+**ProjectWarrior(UE 5.8 액션 게임)의 게임 서버입니다.** 게임이 보낸 계정·결과·성장·소셜 요청을 검증·판정하고 MySQL·Redis에 저장합니다. 보상·포인트·해금·웨이브 구성·난이도 배율의 **원본은 서버**이고, 게임은 "무엇을 했는지"만 보냅니다.
+
+- 작업 공간 루트: [PW01](https://github.com/NBCGameServerCamp09Team01/PW01) (이 폴더는 루트 안의 `PW01\PW01WebServer\`) · 게임: [ProjectWarrior](https://github.com/NBCGameServerCamp09Team01/ProjectWarrior)
 - 게임과의 약속(API·Redis 키·오류 형식): 루트 `docs/contracts/` — **코드보다 명세를 먼저 고칩니다**
 - 작업 규칙: [AGENTS.md](AGENTS.md), 루트 `docs/git-workflow.md`. 이 저장소의 기준 브랜치는 **`dev`** 입니다
-- 결정 기록: [docs/decisions/0001-초기-설정.md](docs/decisions/0001-초기-설정.md)
-- **세팅 명세**(파일·의존성·설정이 각각 무슨 역할인지): [docs/initial-setup.md](docs/initial-setup.md)
 
 | 항목 | 값 |
 |---|---|
 | Java | 21 |
-| Spring Boot | 4.1.1 (Gradle 9.5.1, Groovy DSL) |
-| DB | MySQL 8.4 + Flyway |
-| 캐시·상태 | Redis 7.4 |
-| 테스트 | JUnit 6, Testcontainers(MySQL·Redis) |
+| Spring Boot | 4.1.1 (Web MVC · Data JPA · WebSocket · Actuator · Validation), Gradle 9.5.1 (Groovy DSL) |
+| DB | MySQL 8.4 + Flyway (V1~V11) |
+| 캐시·상태 | Redis 7.4 (Lua 스크립트 13개, Pub/Sub) |
+| 테스트 | JUnit 6, Testcontainers(MySQL·Redis), MockMvc |
+| 배포 | Docker 이미지 → ECR → EC2(SSM), GitHub Actions + OIDC. 웨이브 정의는 S3 |
 
+---
+
+## 무엇을 하나
+
+| 기능 | API(루트 명세) | 패키지 |
+|---|---|---|
+| 가입·로그인·세션(하트비트·로그아웃·다른 곳 로그인) | A1~A5 `/auth/*` ([auth-api](https://github.com/NBCGameServerCamp09Team01/PW01/blob/main/docs/contracts/auth-api.md)) | `auth` |
+| 계정 스냅샷(레벨·경험치·포인트·스탯·스킬·`version`) | A3 `GET /accounts/me` (account-api) | `account` |
+| 스테이지 정의·내 진행, 웨이브·몬스터·난이도·수식어 정의 | ST1 `GET /stages`, ST2 `GET /accounts/me/stages` (stage-api) | `stage` |
+| 판 시작(웨이브 구성·난이도 고정)·현재 판·포기·체크포인트 | P1~P5, C1·C2 `/accounts/me/stage-plays…` (stage-play-api) | `stageplay` |
+| 결과 제출·보상·누적 통계 | R1·R2 `…/{stagePlayId}/result` (result-api) | `stageresult` |
+| 스탯 투자 / 스킬 해금·조건 판정 | T1 `/accounts/me/stat-investments` / K1·K2 `/accounts/me/skill-unlocks`·`/skills` | `stat` / `skill`·`progression` |
+| 랭킹(스테이지·지역·전체·진행, 전체·주간, 난이도별) | RK1~RK8 `/rankings/*` (ranking-api) | `ranking` |
+| 길드(찾기·만들기·가입 신청·승인·거절·탈퇴·해체) | G1~G12 `/guilds`, `/accounts/me/guild…` (guild-api) | `guild` |
+| 전체·길드 채팅(횟수 제한·도배 쉬기·길드 내역) | CH1~CH3 `/chats/*` (chat-api) | `chat` |
+| 실시간 연결·서버 사이 전달·접속 상태 | WebSocket `/realtime` (realtime-api) | `realtime`, `presence` |
+
+모든 기능이 같이 쓰는 뼈대(`common`): 요청 번호(`X-Request-Id`) · 인증 인터셉터(세션 10분 연장) · 공통 오류 응답(`{code, message, path, retryable, errors}`) · **같은 `requestId`는 한 번만**(`IdempotencyService`) · 진행 저장(부딪히면 다시) · 마스터 파일 검사(틀리면 기동 실패) · 서버 번호.
+
+```mermaid
+flowchart LR
+  G["게임"] -->|"HTTP + Bearer"| F["RequestIdFilter → AuthInterceptor"]
+  G <-->|"WebSocket /realtime"| WS["realtime"]
+  F --> C["controller"] --> S["service<br>판정·트랜잭션"] --> R["repository"]
+  S --> CM["common<br>멱등·진행 저장·오류"]
+  R --> DB[("MySQL")]
+  R --> RD[("Redis<br>Lua")]
+  S -->|"커밋 뒤 알림"| WS
+  WS <-->|"Pub/Sub 다른 서버로"| RD
+```
 ## 처음 받기
 
 ### 1. 준비물
@@ -144,47 +175,38 @@ curl.exe -s http://localhost:8081/actuator/stagecontent
 
 ## 구조
 
+기능마다 `controller → service → repository` 세 층이고(`entity`·`dto`는 기능 안), 다른 기능의 데이터는 그 기능의 Service로만 가져옵니다([AGENTS.md](AGENTS.md) "코드").
+
 ```
 src/main/java/com/pw01/webserver/
-├─ Pw01WebserverApplication.java
-├─ common/                ← 여러 기능이 같이 쓰는 것
-│   ├─ entity/            ← BaseEntity(생성·수정 시각)
-│   └─ error/             ← 공통 오류 응답, 상태별 예외, GlobalExceptionHandler
-├─ config/                ← 설정(JpaAuditingConfig)
-├─ account/               ← 계정(메인화면 값): controller · service · repository · entity · dto
-└─ auth/                  ← 인증(가입·로그인·세션·인터셉터): controller · service · repository · dto · interceptor
+├─ auth/ · account/                    ← 인증·세션, 계정 스냅샷·레벨 곡선·변경 내역
+├─ stage/ · stageplay/ · stageresult/  ← 스테이지 정의(웨이브 정의 다시 읽기 포함), 판, 결과
+├─ stat/ · skill/ · progression/       ← 스탯 투자, 스킬 해금, 해금 조건 판정
+├─ ranking/ · guild/ · chat/           ← 랭킹, 길드, 채팅
+├─ realtime/ · presence/               ← WebSocket·서버 사이 전달, 접속 상태
+├─ common/                             ← 오류·멱등·로그·마스터 파일·서버 번호·채팅↔길드 약속
+└─ config/                             ← 기능별 설정 값(…Properties)과 빈
 src/main/resources/
-├─ application.properties         ← 공통 설정
-├─ application-local.properties   ← 각자 PC(compose)
-├─ application-prod.properties    ← 배포
-└─ db/migration/                  ← Flyway 마이그레이션
-src/test/java/com/pw01/webserver/ ← @IntegrationTest(Testcontainers), @WebMvcTest
+├─ application*.properties             ← 공통 · local · prod (test는 src/test/resources)
+├─ db/migration/                       ← Flyway V1~V11
+├─ master/                             ← 레벨 곡선·스테이지·스탯·스킬·웨이브·몬스터·난이도(JSON 7개)
+└─ redis/                              ← Lua 스크립트(세션·로그인 실패·체크포인트·랭킹·접속·채팅)
 ```
 
-- 상태 저장소: MySQL(영구 데이터), Redis(빠르게 바뀌는 상태. 키 규칙은 루트 `docs/contracts/redis-keys.md`)
-- 프로필·환경변수·요청 흐름: [docs/overview.md](docs/overview.md)
+- 프로필·환경 변수·요청 흐름: [docs/overview.md](docs/overview.md), 세팅 명세: [docs/initial-setup.md](docs/initial-setup.md)
+- 테이블: [docs/migrations.md](docs/migrations.md), ERD [docs/erd/](docs/erd/)(스테이지·길드·채팅)
+- 결정 기록: [docs/decisions/](docs/decisions/)(초기 설정, 랭킹 저장 방식 — 실행 계획 비교, 길드 동시성), 겪은 문제: [docs/troubleshooting/](docs/troubleshooting/README.md)
 
 ## API
 
-- 명세 원본은 루트 `docs/contracts/`입니다. 공통 규칙(경로는 기능 이름부터·버전 없음, 시각 UTC, 오류 응답 `{code, message, path, errors}`)은 그 폴더의 README.md에 있습니다.
-- Swagger UI는 실행 중인 서버를 확인하는 보기입니다. 명세와 다르면 명세가 기준입니다.
-- 지금 있는 API는 S1 인증·계정입니다(`/auth/*`, `/accounts/me`). 명세: 루트 `docs/contracts/auth-api.md`·`account-api.md`
+- 명세 원본은 루트 `docs/contracts/`입니다. 공통 규칙(경로는 기능 이름부터·버전 없음, 시각 UTC, 오류 응답, 재전송, 모르는 필드는 400)은 그 폴더의 README.md에 있습니다.
+- Swagger UI는 실행 중인 서버를 확인하는 보기입니다(http://localhost:8080/swagger-ui/index.html). 명세와 다르면 명세가 기준입니다.
 
-## 제약·인덱스와 이유
-
-| 테이블 | 제약·인덱스 | 이유 |
-|---|---|---|
-| `account` | `uk_account_login_id` (login_id 유일, 대소문자 구분) · `uk_account_nickname` (nickname 유일) | 같은 아이디·닉네임을 두 번 만들지 않는다. 동시 가입은 DB 제약이 마지막으로 막는다(409로 바꿈) |
-
-테이블을 더하면 이 표에 함께 적습니다.
-
-## 검증 숫자
+## 검증
 
 | 항목 | 값 | 측정 |
 |---|---|---|
-| 테스트 | 17개 통과, 실패 0 (스모크 2, 연결 2, 공통 오류 틀 7, 예시 API 6) | `.\gradlew build`, 2026-10-06 |
-| 예시 API 실행 | `POST /api/v1/examples` 201 + `Location`, `createdAt`은 밀리초까지 UTC | local 프로필 + compose, 2026-10-06 |
-
-## 주요 쟁점
-
-개발하면서 부딪힌 설계 쟁점과 고른 이유를 적습니다. (아직 없음)
+| 자동 시험 | `.\gradlew build` 465개 통과, 실패 0 | 2026-10-16 (#33 병합 뒤) |
+| 동시성 예 | 같은 계정 동시 채팅 10번 → 정확히 5번 통과(Lua 한 번 판단) | `RedisChatRateLimiterTest` |
+| 랭킹 조회 | 계정 1만·클리어 5만에서 실행 계획 비교 | [docs/decisions/0002-랭킹-저장-방식.md](docs/decisions/0002-랭킹-저장-방식.md) |
+| 길드 동시성 | 정원·중복 가입 경합 시험 | [docs/decisions/0003-guild-concurrency.md](docs/decisions/0003-guild-concurrency.md) |
