@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "difficulties": [
+    { "difficulty": 0, "name": "이지",
+      "enemyCountMultiplier": 1.0, "enemyHealthMultiplier": 1.0, "enemyDamageMultiplier": 1.0,
+      "goldAmountMultiplier": 1.0, "scoreMultiplierPercent": 100 },
+    { "difficulty": 1, "name": "노말",
+      "enemyCountMultiplier": 1.0, "enemyHealthMultiplier": 1.2, "enemyDamageMultiplier": 1.2,
+      "goldAmountMultiplier": 1.0, "scoreMultiplierPercent": 100 },
+    { "difficulty": 2, "name": "하드",
+      "enemyCountMultiplier": 1.0, "enemyHealthMultiplier": 1.5, "enemyDamageMultiplier": 1.3,
+      "goldAmountMultiplier": 1.0, "scoreMultiplierPercent": 100 }
+  ]
+}

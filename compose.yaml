@@ -1,6 +1,7 @@
 # 로컬 개발용 Redis·DB (운영용 아님)
 # 사용: copy .env.example .env → .env 값 채우기 → docker compose up -d
 # 비밀번호는 .env 에만 둡니다 (.env 는 커밋되지 않음)
+# 3306·6379를 이미 다른 프로그램(예: Windows용 MySQL 서비스)이 쓰면 .env 의 MYSQL_PORT·REDIS_PORT 를 바꿉니다
 
 name: pw01-local
 
@@ -9,7 +10,7 @@ services:
     image: mysql:8.4
     restart: unless-stopped
     environment:
-      TZ: Asia/Seoul
+      TZ: UTC
       MYSQL_DATABASE: ${MYSQL_DATABASE:-pw01}
       MYSQL_USER: ${MYSQL_USER:-pw01}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?.env 에 MYSQL_PASSWORD 를 설정하세요}
@@ -23,16 +24,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+      # 첫 실행 때 데이터 초기화가 끝나기 전의 실패는 세지 않는다
+      start_period: 30s
 
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?.env 에 REDIS_PASSWORD 를 설정하세요}"]
+    environment:
+      # healthcheck의 redis-cli가 이 값으로 인증한다(명령에 -a 비밀번호를 쓰지 않는다)
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?.env 에 REDIS_PASSWORD 를 설정하세요}
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 3s
       retries: 10

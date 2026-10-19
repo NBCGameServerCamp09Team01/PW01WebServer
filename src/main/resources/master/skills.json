@@ -1,0 +1,31 @@
+{
+  "skills": [
+    {
+      "tag": "Account.Skill.Combo4",
+      "cost": 1,
+      "prerequisites": [],
+      "requirements": [
+        { "type": "STAGES_CLEARED", "target": 1 }
+      ]
+    },
+    {
+      "tag": "Account.Skill.DodgeMastery",
+      "cost": 2,
+      "prerequisites": [],
+      "requirements": [
+        { "type": "ACCOUNT_LEVEL", "target": 3 },
+        { "type": "PLAY_TIME_SECONDS", "target": 120 }
+      ]
+    },
+    {
+      "tag": "Account.Skill.CounterPlus",
+      "cost": 2,
+      "prerequisites": ["Account.Skill.Combo4"],
+      "requirements": [
+        { "type": "TOTAL_KILLS", "target": 10 },
+        { "type": "MAX_WAVE_REACHED", "target": 3 },
+        { "type": "BEST_CLEAR_TIME", "target": 900 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+# dev에 병합되면 빌드·테스트 → 이미지 → ECR에 올린다. 배포는 하지 않는다(배포는 deploy-<대상>.yml로 따로).
+# 이 workflow가 성공하면 deploy-ec2.yml이 이어서 EC2에 배포한다(저장소 변수 AUTO_DEPLOY=true일 때). 이 파일의 name을 바꾸면 그쪽도 같이.
+# 파일 이름 규칙: <동작>-<대상>.yml. 이미지 pw01/webserver, 태그 dev-<커밋 해시 40자>(어느 브랜치에서 만들었는지)
+# AWS 접속은 OIDC로 역할을 받는다(액세스 키 없음). 역할·지역·저장소 이름은 저장소 변수(Settings → Variables)에 둔다.
+# 저장소 변수 AWS_ROLE_ARN이 없으면 작업 전체를 건너뛴다(실패 아님).
+name: Build and Push Image (ECR)
+
+on:
+  push:
+    branches: [dev]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  # 손으로 다시 돌리기(Actions 화면). 역할 신뢰 조건이 dev 브랜치뿐이라 dev에서만 돈다
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+# 동시 실행: GitHub는 같은 group에 "실행 중 1개 + 대기 1개"만 둔다(GitHub 문서 "Control the concurrency of workflows and jobs").
+#   - cancel-in-progress: false라 실행 중인 빌드는 끊지 않는다.
+#   - 그러나 대기 중에 새 병합이 오면 **대기하던 실행은 취소**된다. "커밋마다 이미지"가 보장되지 않는다(10/15 이전 주석이 틀렸음).
+#   - 영향: 병합이 몰리면 가운데 커밋은 ECR 이미지가 없을 수 있다 → 그 커밋으로는 손 배포·되돌림을 할 수 없다. 마지막 커밋은 늘 만들어진다.
+#   - 필요하면: 그 커밋을 dev에서 이 workflow 손 실행(Run workflow)으로 다시 만든다(같은 태그가 있으면 건너뜀).
+concurrency:
+  group: build-push-ecr-dev
+  cancel-in-progress: false
+
+jobs:
+  build-push:
+    if: ${{ vars.AWS_ROLE_ARN != '' && github.ref == 'refs/heads/dev' }}
+    # 실행 기계 판 고정: ubuntu-latest는 2026-10-19부터 Ubuntu 26으로 바뀐다(10/13 이 workflow 실행 화면의 GitHub 알림).
+    # 그날이 리허설(G4)이라, 판이 바뀌어 빌드·이미지가 깨지면 배포까지 막힌다. 판을 바꿀 때는 따로 시험한 뒤 이 줄을 고친다.
+    # 세 workflow(ci·build-push-ecr·deploy-ec2)가 같은 판을 쓴다
+    runs-on: ubuntu-24.04
+    env:
+      # 태그 = <브랜치>-<커밋 해시 40자>. /actuator/info의 app.commit은 해시만
+      IMAGE_TAG: dev-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # ci.yml과 같은 JDK·Gradle
+      - uses: actions/setup-java@v6
+        with:
+          distribution: microsoft
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      # 병합된 결과로 다시 시험한다. 실패하면 이미지를 만들지 않는다
+      - name: Build and test
+        run: ./gradlew build
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: build/reports/tests/
+
+      - name: Get AWS role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 태그를 바꿀 수 없는 저장소라, 같은 커밋으로 다시 돌리면 올리기가 실패한다. 이미 있으면 건너뛴다
+      - name: Check existing tag
+        id: existing
+        env:
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          if aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$TAG" > /dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push image
+        if: steps.existing.outputs.found == 'false'
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          APP_COMMIT: ${{ github.sha }}
+        run: |
+          docker build --build-arg APP_COMMIT="$APP_COMMIT" -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Summary
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          FOUND: ${{ steps.existing.outputs.found }}
+        run: |
+          if [ "$FOUND" = "true" ]; then
+            echo "이미 있음(건너뜀): \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "올림: \`$IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.docker.example
 
 # ===== Java =====
 *.class
@@ -41,6 +42,9 @@ out/
 .claude/*
 !.claude/settings.json
 CLAUDE.local.md
+
+# ===== 로컬 시험용 웨이브 정의 사본(compose.apps.yaml 파일 출처, 각자 고쳐 보는 파일) =====
+local/content/
 
 # ===== OS =====
 .DS_Store

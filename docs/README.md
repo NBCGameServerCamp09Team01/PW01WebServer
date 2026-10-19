@@ -4,7 +4,15 @@ PW01WebServer 저장소 안의 문서 목록입니다. 게임과 함께 지키�
 
 | 문서 | 내용 | 상태 |
 |---|---|---|
-| [overview.md](overview.md) | 웹서버 구조 (모듈, 외부 연동) | 초안 |
+| [overview.md](overview.md) | 웹서버 구조(기술 스택, 패키지, 요청 흐름, 프로필, 환경변수) | 초안 |
+| [initial-setup.md](initial-setup.md) | 초기 세팅 명세: 파일·의존성·설정 키·기동 순서·오류 흐름·테스트·CI의 역할, 세팅을 만든 과정(커밋 이력), 팀원이 쓰는 법 | 2026-10-06 기준 |
+| [decisions/0001-초기-설정.md](decisions/0001-초기-설정.md) | 결정 기록(ADR): 웹서버 초기 설정 W01~W39 | 채택 |
+| [troubleshooting/README.md](troubleshooting/README.md) | 문제 해결 기록(가설 → 반증 → 원인 → 조치 → 배운 것) | 진행형 |
+| [migrations.md](migrations.md) | Flyway 마이그레이션 번호 표와 번호 규칙 | 진행형 |
+| [decisions/0002-랭킹-저장-방식.md](decisions/0002-랭킹-저장-방식.md) | 결정 기록: 랭킹 원천(MySQL 표 5개)·Redis 보드 사본·실행 계획 비교 | 채택 |
+| [decisions/0003-guild-concurrency.md](decisions/0003-guild-concurrency.md) | 결정 기록: 길드 동시성(낙관적 잠금 + 해체만 비관적 잠금 + DB 제약 + 잠금 순서), `guild_counter` 몰림, 시험 C-1~C-8 | 채택 |
+| [erd/stage.md](erd/stage.md) | ERD: 스테이지 진행(`account_stage_progress`) | 초안 |
+| [erd/guild.md](erd/guild.md) | ERD: 길드(`guild`·`account_guild`·`guild_join_request`·`guild_counter`) | 초안 |
 
 ## 다른 곳에 있는 문서
 

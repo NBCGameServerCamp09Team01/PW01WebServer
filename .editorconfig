@@ -1,0 +1,5 @@
+# 편집기 공통 설정(IntelliJ가 읽음). .properties의 한글 주석이 깨지지 않게 모든 파일을 UTF-8로 연다
+root = true
+
+[*]
+charset = utf-8
