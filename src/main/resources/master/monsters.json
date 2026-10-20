@@ -1,10 +1,8 @@
 {
-  "version": 3,
+  "version": 2,
   "monsters": [
     { "monsterId": "monster.samurai", "name": "사무라이", "boss": false, "goldReward": 2, "goldDropChance": 1.0 },
-    { "monsterId": "monster.samurai.elite", "name": "사무라이 정예", "boss": false, "goldReward": 5, "goldDropChance": 1.0 },
     { "monsterId": "monster.archer", "name": "궁수", "boss": false, "goldReward": 3, "goldDropChance": 1.0 },
-    { "monsterId": "monster.archer.elite", "name": "궁수 정예", "boss": false, "goldReward": 6, "goldDropChance": 1.0 },
     { "monsterId": "monster.boss.warrior", "name": "무사 보스", "boss": true, "goldReward": 0, "goldDropChance": 1.0 },
     { "monsterId": "monster.megaspikan.larvae", "name": "메가스피칸 유충", "boss": false, "goldReward": 1, "goldDropChance": 1.0 },
     { "monsterId": "monster.megaspikan.stalker", "name": "잠복 유충", "boss": false, "goldReward": 2, "goldDropChance": 1.0 },
