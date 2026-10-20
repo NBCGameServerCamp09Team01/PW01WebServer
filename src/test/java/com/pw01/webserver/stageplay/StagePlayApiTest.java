@@ -279,7 +279,7 @@ class StagePlayApiTest {
         String token = signupAndLogin("StagePlay21", "플레이21");
         ResultActions started = start(token, newId(), STAGE_1)
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.waveVersion").value("w3-m2-d1"))
+                .andExpect(jsonPath("$.data.waveVersion").value("w3-m3-d1"))
                 .andExpect(jsonPath("$.data.waves.length()").value(5))
                 .andExpect(jsonPath("$.data.waves[0].waveNumber").value(1))
                 .andExpect(jsonPath("$.data.waves[0].restSeconds").value(0.0))
@@ -299,7 +299,7 @@ class StagePlayApiTest {
 
         String id = idOf(started);
         assertThat(jdbc.queryForObject("SELECT wave_version FROM stage_play WHERE stage_play_id = ?", String.class, id))
-                .isEqualTo("w3-m2-d1");
+                .isEqualTo("w3-m3-d1");
         assertThat(jdbc.queryForObject("SELECT JSON_LENGTH(wave_plan) FROM stage_play WHERE stage_play_id = ?",
                 Integer.class, id)).isEqualTo(5);
     }
@@ -322,7 +322,7 @@ class StagePlayApiTest {
                 body(abandon(token, id).andExpect(status().isOk())));
         for (String other : bodies) {
             assertThat((Object) JsonPath.read(other, "$.data.waves")).isEqualTo(waves);
-            assertThat((String) JsonPath.read(other, "$.data.waveVersion")).isEqualTo("w3-m2-d1");
+            assertThat((String) JsonPath.read(other, "$.data.waveVersion")).isEqualTo("w3-m3-d1");
         }
     }
 
@@ -351,7 +351,7 @@ class StagePlayApiTest {
         insertInProgress(accountId("StagePlay24"), 5);
         current(token)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.waveVersion").value("w3-m2-d1"))
+                .andExpect(jsonPath("$.data.waveVersion").value("w3-m3-d1"))
                 .andExpect(jsonPath("$.data.waves.length()").value(5));
 
         String otherToken = signupAndLogin("StagePlay25", "플레이25");
@@ -384,7 +384,7 @@ class StagePlayApiTest {
         String id = idOf(start(token, newId(), STAGE_1, 2)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.difficulty").value(2))
-                .andExpect(jsonPath("$.data.waveVersion").value("w3-m2-d1"))
+                .andExpect(jsonPath("$.data.waveVersion").value("w3-m3-d1"))
                 .andExpect(jsonPath("$.data.waves[0].enemies[0].count").value(2))
                 .andExpect(jsonPath("$.data.waves[0].enemies[0].healthMultiplier").value(1.5))
                 .andExpect(jsonPath("$.data.waves[0].enemies[0].damageMultiplier").value(1.3))

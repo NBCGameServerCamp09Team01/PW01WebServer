@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * 웨이브 정의 다시 읽기 규칙 단위 테스트(컨테이너·S3 없음, 판 12 W3). 출처는 시험 안의 가짜(S3처럼 ETag·내용을 바꿀 수 있음).
- * 실제 master/ 리소스로 뜬 정의(w3-m2-d1)에서 출발해, 올린 파일에 따라 바꾸거나(CHANGED) 이전 정의를 지키는지(REJECTED 등) 본다.
+ * 실제 master/ 리소스로 뜬 정의(w3-m3-d1)에서 출발해, 올린 파일에 따라 바꾸거나(CHANGED) 이전 정의를 지키는지(REJECTED 등) 본다.
  * 실패하면 StageContentReloader.reload의 단계 순서(HEAD → 같은 내용 → version → 기동 검사)와 StageCatalog.build를 의심한다.
  */
 class StageContentReloaderTest {
@@ -49,9 +49,9 @@ class StageContentReloaderTest {
         Outcome outcome = reloader.reload("signal");
 
         assertThat(outcome.result()).isEqualTo(Result.CHANGED);
-        assertThat(outcome.before()).isEqualTo("w3-m2-d1");
-        assertThat(outcome.waveVersion()).isEqualTo("w4-m2-d1");
-        assertThat(catalog.waveVersion()).isEqualTo("w4-m2-d1");
+        assertThat(outcome.before()).isEqualTo("w3-m3-d1");
+        assertThat(outcome.waveVersion()).isEqualTo("w4-m3-d1");
+        assertThat(catalog.waveVersion()).isEqualTo("w4-m3-d1");
         assertThat(catalog.get("stage.01.01").waves().getFirst().enemies().getFirst().count()).isEqualTo(4);
         assertThat(reloader.status().lastRejected()).isNull();
     }
@@ -85,7 +85,7 @@ class StageContentReloaderTest {
 
         assertThat(outcome.result()).isEqualTo(Result.REJECTED);
         assertThat(outcome.reason()).contains("version(3)");
-        assertThat(catalog.waveVersion()).isEqualTo("w3-m2-d1");
+        assertThat(catalog.waveVersion()).isEqualTo("w3-m3-d1");
         assertThat(catalog.get("stage.01.01").waves().getFirst().enemies().getFirst().count()).isEqualTo(2);
         assertThat(reloader.reload("poll").result()).isEqualTo(Result.REJECTED);
         assertThat(source.reads).isEqualTo(2);
@@ -102,7 +102,7 @@ class StageContentReloaderTest {
 
         assertThat(outcome.result()).isEqualTo(Result.REJECTED);
         assertThat(outcome.reason()).contains("stage-waves.json");
-        assertThat(catalog.waveVersion()).isEqualTo("w3-m2-d1");
+        assertThat(catalog.waveVersion()).isEqualTo("w3-m3-d1");
     }
 
     // 확인: 모르는 칸이 있는 파일은 거절(리소스 파일과 같은 엄격함)
@@ -111,7 +111,7 @@ class StageContentReloaderTest {
         source.put("\"e2\"", resource.replaceFirst("\"version\": 3", "\"version\": 4, \"extra\": 1"));
 
         assertThat(reloader.reload("signal").result()).isEqualTo(Result.REJECTED);
-        assertThat(catalog.waveVersion()).isEqualTo("w3-m2-d1");
+        assertThat(catalog.waveVersion()).isEqualTo("w3-m3-d1");
     }
 
     // 확인: 되돌리기(version이 내려감)는 받는다
@@ -124,7 +124,7 @@ class StageContentReloaderTest {
         Outcome back = reloader.reload("signal");
 
         assertThat(back.result()).isEqualTo(Result.CHANGED);
-        assertThat(back.waveVersion()).isEqualTo("w3-m2-d1");
+        assertThat(back.waveVersion()).isEqualTo("w3-m3-d1");
     }
 
     // 확인: 거절된 뒤 고친 파일을 올리면 받는다(거절 기억이 다음 파일을 막지 않음)
@@ -136,7 +136,7 @@ class StageContentReloaderTest {
         source.put("\"e3\"", resource.replace(SAMURAI_2, SAMURAI_4).replaceFirst("\"version\": 3", "\"version\": 5"));
 
         assertThat(reloader.reload("signal").result()).isEqualTo(Result.CHANGED);
-        assertThat(catalog.waveVersion()).isEqualTo("w5-m2-d1");
+        assertThat(catalog.waveVersion()).isEqualTo("w5-m3-d1");
     }
 
     // 확인: 출처를 못 읽으면 SOURCE_ERROR, 이전 정의 유지(예외를 밖으로 던지지 않음)
@@ -148,7 +148,7 @@ class StageContentReloaderTest {
 
         assertThat(outcome.result()).isEqualTo(Result.SOURCE_ERROR);
         assertThat(outcome.reason()).contains("status=403");
-        assertThat(catalog.waveVersion()).isEqualTo("w3-m2-d1");
+        assertThat(catalog.waveVersion()).isEqualTo("w3-m3-d1");
     }
 
     // 확인: 리소스 파일을 쓰는 서버(로컬·시험)는 다시 읽지 않는다

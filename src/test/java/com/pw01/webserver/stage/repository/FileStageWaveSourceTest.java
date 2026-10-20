@@ -70,7 +70,7 @@ class FileStageWaveSourceTest {
 
         write(resource.replaceFirst("\"version\": 3", "\"version\": 4"));
         assertThat(reloader.reload("signal").result()).isEqualTo(Result.CHANGED);
-        assertThat(catalog.waveVersion()).isEqualTo("w4-m2-d1");
+        assertThat(catalog.waveVersion()).isEqualTo("w4-m3-d1");
     }
 
     private Path write(String json) throws Exception {
