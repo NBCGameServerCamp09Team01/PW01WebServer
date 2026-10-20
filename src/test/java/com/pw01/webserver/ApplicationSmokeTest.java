@@ -80,10 +80,10 @@ class ApplicationSmokeTest {
         mockMvc.perform(get("/actuator/info"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.source").value("classpath:master/stage-waves.json"))
-                .andExpect(jsonPath("$.content.waveVersion").value("w3-m2-d1"));
+                .andExpect(jsonPath("$.content.waveVersion").value("w3-m3-d1"));
         mockMvc.perform(get("/actuator/stagecontent"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.waveVersion").value("w3-m2-d1"))
+                .andExpect(jsonPath("$.waveVersion").value("w3-m3-d1"))
                 .andExpect(jsonPath("$.serverId").exists());
         mockMvc.perform(post("/actuator/stagecontent"))
                 .andExpect(status().isOk())

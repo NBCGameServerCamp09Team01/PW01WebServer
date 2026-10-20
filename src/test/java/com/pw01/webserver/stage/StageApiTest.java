@@ -58,8 +58,8 @@ class StageApiTest {
                 .andExpect(jsonPath("$.data.regions[0].stages[0].waveCount").value(5))
                 .andExpect(jsonPath("$.data.regions[0].stages[0].recommendedClearSeconds").value(300))
                 // v1.3 미리보기(M24): 실제 마스터 파일 값. 이름은 monsters, 웨이브는 골드 없이
-                .andExpect(jsonPath("$.data.waveVersion").value("w3-m2-d1"))
-                .andExpect(jsonPath("$.data.monsters.length()").value(7))
+                .andExpect(jsonPath("$.data.waveVersion").value("w3-m3-d1"))
+                .andExpect(jsonPath("$.data.monsters.length()").value(9))
                 .andExpect(jsonPath("$.data.monsters[0].name").value("사무라이"))
                 .andExpect(jsonPath("$.data.regions[0].stages[0].waves.length()").value(5))
                 .andExpect(jsonPath("$.data.regions[0].stages[0].waves[4].bossWave").value(true))

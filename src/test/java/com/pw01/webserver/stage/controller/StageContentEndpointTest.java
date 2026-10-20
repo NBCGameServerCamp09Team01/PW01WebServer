@@ -51,8 +51,8 @@ class StageContentEndpointTest {
 
         Map<String, Object> body = endpoint.reload();
 
-        assertThat(body).containsEntry("result", "CHANGED").containsEntry("before", "w3-m2-d1")
-                .containsEntry("waveVersion", "w4-m2-d1").containsEntry("serverId", "srv-a").doesNotContainKey("reason");
+        assertThat(body).containsEntry("result", "CHANGED").containsEntry("before", "w3-m3-d1")
+                .containsEntry("waveVersion", "w4-m3-d1").containsEntry("serverId", "srv-a").doesNotContainKey("reason");
         verify(notifier).notifyContentChanged();
     }
 
@@ -64,10 +64,10 @@ class StageContentEndpointTest {
         source.put("\"e2\"", resource.replace("\"count\": 2, \"goldReward\": 3", "\"count\": 4, \"goldReward\": 3"));
         Map<String, Object> body = endpoint.reload();
 
-        assertThat(body).containsEntry("result", "REJECTED").containsEntry("waveVersion", "w3-m2-d1");
+        assertThat(body).containsEntry("result", "REJECTED").containsEntry("waveVersion", "w3-m3-d1");
         assertThat((String) body.get("reason")).contains("version(3)");
         verify(notifier, never()).notifyContentChanged();
-        assertThat(endpoint.status()).containsEntry("waveVersion", "w3-m2-d1").containsKey("lastRejected");
+        assertThat(endpoint.status()).containsEntry("waveVersion", "w3-m3-d1").containsKey("lastRejected");
     }
 
     /** S3 객체 하나 흉내(시험용) */

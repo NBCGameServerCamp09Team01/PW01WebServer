@@ -75,13 +75,14 @@ class StageCatalogTest {
     // 확인(M24): 웨이브 정보 버전 = w{stage-waves 버전}-m{monsters 버전}, 몬스터 정의는 파일 순서
     @Test
     void 웨이브_버전과_몬스터() {
-        assertThat(catalog.waveVersion()).isEqualTo("w3-m2-d1");
+        assertThat(catalog.waveVersion()).isEqualTo("w3-m3-d1");
         assertThat(catalog.monsters()).extracting(MonsterDef::monsterId)
-                .containsExactly("monster.samurai", "monster.archer", "monster.boss.warrior",
+                .containsExactly("monster.samurai", "monster.samurai.elite", "monster.archer", "monster.archer.elite",
+                        "monster.boss.warrior",
                         "monster.megaspikan.larvae", "monster.megaspikan.stalker", "monster.megaspikan.elite",
                         "monster.boss.rampage");
         assertThat(catalog.monsters()).extracting(MonsterDef::boss)
-                .containsExactly(false, false, true, false, false, false, true);
+                .containsExactly(false, false, false, false, true, false, false, false, true);
     }
 
     // 확인(M24): 모든 스테이지의 웨이브 수 = waveCount, 번호는 1부터, 마지막만 보스 웨이브
@@ -167,13 +168,13 @@ class StageCatalogTest {
     void 덩어리_교체() {
         StageContent before = catalog.content();
         StageContent next = new StageContent(before.regions(), before.stagesById(), before.monsters(),
-                before.difficulties(), "w9-m2-d1");
+                before.difficulties(), "w9-m3-d1");
 
         assertThat(catalog.replace(before, next)).isTrue();
 
         assertThat(catalog.content()).isSameAs(next);
-        assertThat(catalog.waveVersion()).isEqualTo("w9-m2-d1");
-        assertThat(before.waveVersion()).isEqualTo("w3-m2-d1");
+        assertThat(catalog.waveVersion()).isEqualTo("w9-m3-d1");
+        assertThat(before.waveVersion()).isEqualTo("w3-m3-d1");
         assertThat(catalog.replace(before, before)).isFalse();
         assertThat(catalog.content()).isSameAs(next);
     }
@@ -185,7 +186,7 @@ class StageCatalogTest {
     void 웨이브_정의는_출처에서() {
         String resource = new String(loader.readClasspath("stage-waves.json"), StandardCharsets.UTF_8);
         StageWaveSource version7 = fixedSource(resource.replaceFirst("\"version\": 3", "\"version\": 7"));
-        assertThat(new StageCatalog(loader, version7).waveVersion()).isEqualTo("w7-m2-d1");
+        assertThat(new StageCatalog(loader, version7).waveVersion()).isEqualTo("w7-m3-d1");
 
         StageWaveSource unknownField = fixedSource(resource.replaceFirst("\"version\": 3", "\"version\": 3, \"extra\": 1"));
         assertThatThrownBy(() -> new StageCatalog(loader, unknownField))
